@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: chefflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chefflow
+      POSTGRES_USER: chefflow_user
+      POSTGRES_PASSWORD: chefflow_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chefflow_user -d chefflow']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: chefflow-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://chefflow_user:chefflow_password@postgres:5432/chefflow?schema=public
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./prisma:/app/prisma
+    command: sh -c "pnpm prisma migrate deploy && node dist/main.js"
+
+  # Development version (optional)
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: chefflow-api-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://chefflow_user:chefflow_password@postgres:5432/chefflow?schema=public
+    ports:
+      - '3001:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "pnpm prisma migrate dev --name init && pnpm run start:dev"
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
