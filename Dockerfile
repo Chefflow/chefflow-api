@@ -1,8 +1,11 @@
 # Multi-stage build for production optimization
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Install OpenSSL for Prisma compatibility
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Enable corepack and install pnpm (official way)
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Set working directory
 WORKDIR /app
@@ -28,27 +31,30 @@ RUN pnpm prisma generate
 RUN pnpm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install OpenSSL for Prisma compatibility
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Enable corepack and install pnpm (official way)
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy package files and install ALL dependencies (including dev for Prisma)
+# Copy package files and install dependencies (including Prisma CLI)
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Copy built application and prisma
+# Copy built application and prisma schema
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 
-# Generate Prisma client
+# Generate Prisma client in production environment
 RUN pnpm prisma generate
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nestjs
 USER nestjs
 
 EXPOSE 3000
