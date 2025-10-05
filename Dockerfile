@@ -4,8 +4,8 @@ FROM node:20-slim AS base
 # Install OpenSSL for Prisma compatibility
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Enable corepack and install pnpm (official way)
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Enable corepack and install pnpm (pinned version)
+RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
 
 # Set working directory
 WORKDIR /app
@@ -36,18 +36,20 @@ FROM node:20-slim AS production
 # Install OpenSSL for Prisma compatibility
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Enable corepack and install pnpm (official way)
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Enable corepack and install pnpm (pinned version)
+RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
 
 WORKDIR /app
 
-# Copy package files and install dependencies (including Prisma CLI)
+# Copy package files and install production dependencies + Prisma CLI
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile && \
+    pnpm add -D prisma
 
-# Copy built application and prisma schema
+# Copy built application, prisma schema, and healthcheck
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
+COPY healthcheck.js ./
 
 # Generate Prisma client in production environment
 RUN pnpm prisma generate

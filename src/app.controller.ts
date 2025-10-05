@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { AppService } from './app.service';
 import { PrismaService } from './prisma.service';
 
@@ -36,11 +36,14 @@ export class AppController {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      return {
-        status: 'not ready',
-        database: 'disconnected',
-        timestamp: new Date().toISOString(),
-      };
+      throw new HttpException(
+        {
+          status: 'not ready',
+          database: 'disconnected',
+          timestamp: new Date().toISOString(),
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
     }
   }
 }
