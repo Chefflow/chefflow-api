@@ -5,18 +5,27 @@ services:
     container_name: chefflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: chefflow
-      POSTGRES_USER: chefflow_user
-      POSTGRES_PASSWORD: chefflow_password
+      POSTGRES_DB: ${POSTGRES_DB:-chefflow}
+      POSTGRES_USER: ${POSTGRES_USER:-chefflow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chefflow_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
     ports:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U chefflow_user -d chefflow']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-chefflow_user} -d ${POSTGRES_DB:-chefflow}']
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # NestJS Application
   app:
@@ -28,14 +37,27 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: postgresql://chefflow_user:chefflow_password@postgres:5432/chefflow?schema=public
+      PORT: ${PORT:-3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-chefflow_user}:${POSTGRES_PASSWORD:-chefflow_password}@postgres:5432/${POSTGRES_DB:-chefflow}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-10}
     ports:
       - '3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
     command: sh -c "pnpm prisma migrate deploy && node dist/main.js"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Development version (optional)
   app-dev:
@@ -48,7 +70,12 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://chefflow_user:chefflow_password@postgres:5432/chefflow?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-chefflow_user}:${POSTGRES_PASSWORD:-chefflow_password}@postgres:5432/${POSTGRES_DB:-chefflow}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      THROTTLE_TTL: ${THROTTLE_TTL:-60}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
     ports:
       - '3001:3000'
     depends_on:
@@ -57,9 +84,19 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - pnpm-cache:/root/.local/share/pnpm/store
     command: sh -c "pnpm prisma migrate dev && pnpm run start:dev"
     profiles:
       - dev
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
 volumes:
   postgres_data:
+  pnpm-cache:
