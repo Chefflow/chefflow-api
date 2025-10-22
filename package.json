@@ -26,6 +26,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:reset": "docker-compose exec postgres psql -U ${POSTGRES_USER:-chefflow_user} -d ${POSTGRES_DB:-chefflow} -c \"DELETE FROM _prisma_migrations;\" && rm -rf prisma/migrations && mkdir -p prisma/migrations",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "docker:build": "docker build -t chefflow-api .",
