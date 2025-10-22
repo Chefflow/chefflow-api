@@ -50,6 +50,8 @@ services:
       postgres:
         condition: service_healthy
     command: sh -c "pnpm prisma migrate deploy && node dist/main.js"
+    profiles:
+      - prod
     deploy:
       resources:
         limits:
@@ -85,7 +87,7 @@ services:
       - .:/app
       - /app/node_modules
       - pnpm-cache:/root/.local/share/pnpm/store
-    command: sh -c "pnpm prisma migrate dev && pnpm run start:dev"
+    command: sh -c "pnpm prisma db push && pnpm run start:dev"
     profiles:
       - dev
     deploy:
