@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   ConflictException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -259,7 +260,7 @@ describe('UsersService', () => {
       mockPrismaService.user.findMany.mockRejectedValue(databaseError);
 
       await expect(service.findAll()).rejects.toThrow(
-        new InternalServerErrorException('Failed to find users'),
+        new InternalServerErrorException('Failed to fetch users'),
       );
 
       expect(mockPrismaService.user.findMany).toHaveBeenCalledTimes(1);
@@ -327,6 +328,123 @@ describe('UsersService', () => {
       expect(result[0].name).toBeNull();
       expect(result[0].image).toBeNull();
       expect(result[0].passwordHash).toBeNull();
+    });
+  });
+
+  describe('findOne', () => {
+    const mockUser = {
+      id: 1,
+      username: 'testuser',
+      email: 'test@example.com',
+      passwordHash: 'hash123',
+      name: 'Test User',
+      image: null,
+      provider: 'LOCAL',
+      providerId: null,
+      createdAt: new Date('2023-01-01'),
+      updatedAt: new Date('2023-01-01'),
+    };
+
+    it('should return a user when found by username', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.findOne('testuser');
+
+      expect(result).toEqual(mockUser);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'testuser' },
+      });
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw NotFoundException when user is not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne('nonexistent')).rejects.toThrow(
+        new NotFoundException('User not found'),
+      );
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'nonexistent' },
+      });
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw InternalServerErrorException when database fails', async () => {
+      const databaseError = new Error('Database connection failed');
+
+      mockPrismaService.user.findUnique.mockRejectedValue(databaseError);
+
+      await expect(service.findOne('testuser')).rejects.toThrow(
+        new InternalServerErrorException('Failed to fetch user'),
+      );
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'testuser' },
+      });
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('should find user with OAuth provider data', async () => {
+      const oauthUser = {
+        id: 2,
+        username: 'googleuser',
+        email: 'user@gmail.com',
+        passwordHash: null,
+        name: 'Google User',
+        image: 'https://example.com/avatar.jpg',
+        provider: 'GOOGLE',
+        providerId: 'google-123',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(oauthUser);
+
+      const result = await service.findOne('googleuser');
+
+      expect(result).toEqual(oauthUser);
+      expect(result.provider).toBe('GOOGLE');
+      expect(result.providerId).toBe('google-123');
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'googleuser' },
+      });
+    });
+
+    it('should find user with null optional fields', async () => {
+      const userWithNulls = {
+        id: 3,
+        username: 'minimaluser',
+        email: 'minimal@example.com',
+        passwordHash: null,
+        name: null,
+        image: null,
+        provider: 'LOCAL',
+        providerId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(userWithNulls);
+
+      const result = await service.findOne('minimaluser');
+
+      expect(result).toEqual(userWithNulls);
+      expect(result.name).toBeNull();
+      expect(result.image).toBeNull();
+      expect(result.passwordHash).toBeNull();
+    });
+
+    it('should handle empty username parameter', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOne('')).rejects.toThrow(
+        new NotFoundException('User not found'),
+      );
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: '' },
+      });
     });
   });
 });

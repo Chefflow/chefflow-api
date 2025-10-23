@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -36,7 +37,24 @@ export class UsersService {
       const users = await this.prisma.user.findMany();
       return users;
     } catch (error) {
-      throw new InternalServerErrorException('Failed to find users');
+      throw new InternalServerErrorException('Failed to fetch users');
+    }
+  }
+
+  async findOne(id: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { username: id },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      return user;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch user');
     }
   }
 }

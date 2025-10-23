@@ -26,7 +26,7 @@ export class UsersController {
   }
 
   @Get()
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.OK)
   async findAll(): Promise<UserEntity[]> {
     const users = await this.usersService.findAll();
     const formatUsers = users.map((user) => {
@@ -36,7 +36,11 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {}
+  @HttpCode(HttpStatus.OK)
+  async findOne(@Param('id') id: string): Promise<UserEntity> {
+    const user = await this.usersService.findOne(id);
+    return new UserEntity(user);
+  }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {}
