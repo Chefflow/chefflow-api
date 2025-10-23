@@ -1,5 +1,8 @@
 # Dependencies
 node_modules
+.pnpm-store
+.pnpm-debug.log
+pnpm-lock.yaml.swp
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*

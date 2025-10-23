@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PrismaService } from './prisma.service';
+import { PrismaModule } from './prisma/prisma.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -13,11 +13,11 @@ import { PrismaService } from './prisma.service';
         limit: parseInt(process.env.THROTTLE_LIMIT ?? '0') || 10, // Max requests per TTL
       },
     ]),
+    PrismaModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
-    AppService,
-    PrismaService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
