@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Prisma } from '@prisma/client';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -41,10 +42,10 @@ export class UsersService {
     }
   }
 
-  async findOne(id: string) {
+  async findOne(username: string) {
     try {
       const user = await this.prisma.user.findUnique({
-        where: { username: id },
+        where: { username: username },
       });
       if (!user) {
         throw new NotFoundException('User not found');
@@ -55,6 +56,22 @@ export class UsersService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to fetch user');
+    }
+  }
+
+  async update(updateUserDto: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { username: updateUserDto.username },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { username: updateUserDto.username },
+        data: updateUserDto,
+      });
+      return updatedUser;
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to update user');
     }
   }
 }

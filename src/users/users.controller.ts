@@ -35,16 +35,23 @@ export class UsersController {
     return formatUsers;
   }
 
-  @Get(':id')
+  @Get(':username')
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string): Promise<UserEntity> {
-    const user = await this.usersService.findOne(id);
+  async findOne(@Param('username') username: string): Promise<UserEntity> {
+    const user = await this.usersService.findOne(username);
     return new UserEntity(user);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {}
+  @Patch(':username')
+  @HttpCode(HttpStatus.OK)
+  async update(
+    @Param('username') username: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserEntity> {
+    const user = await this.usersService.update(updateUserDto);
+    return user;
+  }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {}
+  @Delete(':username')
+  remove(@Param('username') username: string) {}
 }

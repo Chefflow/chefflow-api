@@ -447,4 +447,103 @@ describe('UsersService', () => {
       });
     });
   });
+
+  describe('update', () => {
+    it('should update an existing user successfully', async () => {
+      const updateUserDto = {
+        username: 'user1',
+        email: 'updated1@example.com',
+        name: 'Updated User One',
+        image: 'https://example.com/newavatar.jpg',
+        passwordHash: 'updatedHash123',
+      };
+
+      const existingUser = {
+        id: 1,
+        username: 'user1',
+        email: 'user1@example.com',
+        passwordHash: 'hash123',
+        name: 'User One',
+        image: null,
+        provider: 'LOCAL',
+        providerId: null,
+        createdAt: new Date('2023-01-01'),
+        updatedAt: new Date('2023-01-01'),
+      };
+
+      const updatedUser = {
+        ...existingUser,
+        ...updateUserDto,
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(existingUser);
+      mockPrismaService.user.update.mockResolvedValue(updatedUser);
+
+      const result = await service.update(updateUserDto);
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: updateUserDto.username },
+      });
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { username: updateUserDto.username },
+        data: updateUserDto,
+      });
+      expect(result).toEqual(updatedUser);
+    });
+
+    it('should throw NotFoundException if user does not exist', async () => {
+      const updateUserDto = {
+        username: 'nonexistentuser',
+        email: 'nonexistent@example.com',
+        passwordHash: 'somehash',
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.update(updateUserDto)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: updateUserDto.username },
+      });
+    });
+
+    it('should throw InternalServerErrorException if update fails', async () => {
+      const updateUserDto = {
+        username: 'user1',
+        email: 'updatefail@example.com',
+        passwordHash: 'failhash',
+      };
+
+      const existingUser = {
+        id: 1,
+        username: 'user1',
+        email: 'user1@example.com',
+        passwordHash: 'hash123',
+        name: 'User One',
+        image: null,
+        provider: 'LOCAL',
+        providerId: null,
+        createdAt: new Date('2023-01-01'),
+        updatedAt: new Date('2023-01-01'),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(existingUser);
+      mockPrismaService.user.update.mockRejectedValue(
+        new Error('Database update error'),
+      );
+
+      await expect(service.update(updateUserDto)).rejects.toThrow(
+        'Failed to update user',
+      );
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: updateUserDto.username },
+      });
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { username: updateUserDto.username },
+        data: updateUserDto,
+      });
+    });
+  });
 });
