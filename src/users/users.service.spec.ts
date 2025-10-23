@@ -546,4 +546,94 @@ describe('UsersService', () => {
       });
     });
   });
+
+  describe('delete', () => {
+    const username = 'testuser';
+
+    it('should delete a user successfully', async () => {
+      mockPrismaService.user.delete.mockResolvedValue(undefined);
+
+      await service.delete(username);
+
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { username },
+      });
+      expect(mockPrismaService.user.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw NotFoundException when user does not exist', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record to delete does not exist',
+        {
+          code: 'P2025',
+          clientVersion: '6.16.1',
+        },
+      );
+
+      mockPrismaService.user.delete.mockRejectedValue(prismaError);
+
+      await expect(service.delete(username)).rejects.toThrow(
+        new NotFoundException('User not found'),
+      );
+
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { username },
+      });
+      expect(mockPrismaService.user.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw InternalServerErrorException for unknown Prisma errors', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Foreign key constraint failed',
+        {
+          code: 'P2003',
+          clientVersion: '6.16.1',
+        },
+      );
+
+      mockPrismaService.user.delete.mockRejectedValue(prismaError);
+
+      await expect(service.delete(username)).rejects.toThrow(
+        new InternalServerErrorException('Failed to delete user'),
+      );
+
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { username },
+      });
+    });
+
+    it('should throw InternalServerErrorException for generic errors', async () => {
+      const genericError = new Error('Database connection failed');
+
+      mockPrismaService.user.delete.mockRejectedValue(genericError);
+
+      await expect(service.delete(username)).rejects.toThrow(
+        new InternalServerErrorException('Failed to delete user'),
+      );
+
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { username },
+      });
+    });
+
+    it('should handle empty username parameter', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record to delete does not exist',
+        {
+          code: 'P2025',
+          clientVersion: '6.16.1',
+        },
+      );
+
+      mockPrismaService.user.delete.mockRejectedValue(prismaError);
+
+      await expect(service.delete('')).rejects.toThrow(
+        new NotFoundException('User not found'),
+      );
+
+      expect(mockPrismaService.user.delete).toHaveBeenCalledWith({
+        where: { username: '' },
+      });
+    });
+  });
 });

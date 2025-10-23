@@ -53,5 +53,8 @@ export class UsersController {
   }
 
   @Delete(':username')
-  remove(@Param('username') username: string) {}
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('username') username: string): Promise<void> {
+    await this.usersService.delete(username);
+  }
 }

@@ -74,4 +74,17 @@ export class UsersService {
       throw new InternalServerErrorException('Failed to update user');
     }
   }
+
+  async delete(username: string): Promise<void> {
+    try {
+      await this.prisma.user.delete({ where: { username } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('User not found');
+        }
+      }
+      throw new InternalServerErrorException('Failed to delete user');
+    }
+  }
 }
