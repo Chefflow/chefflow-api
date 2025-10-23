@@ -32,8 +32,12 @@
     "docker:build": "docker build -t chefflow-api .",
     "docker:run": "docker run -p 3000:3000 chefflow-api",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:dev": "docker-compose --profile dev up -d"
+    "docker:down": "docker-compose --profile dev down --remove-orphans",
+    "docker:dev": "docker-compose --profile dev up -d",
+    "docker:dev:logs": "docker-compose logs -f app-dev",
+    "docker:logs": "docker-compose logs -f",
+    "docker:dev:attach": "docker-compose --profile dev up",
+    "docker:clean": "docker-compose --profile dev down -v --remove-orphans"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
