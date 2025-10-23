@@ -26,7 +26,14 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {}
+  @HttpCode(HttpStatus.ACCEPTED)
+  async findAll(): Promise<UserEntity[]> {
+    const users = await this.usersService.findAll();
+    const formatUsers = users.map((user) => {
+      return new UserEntity(user);
+    });
+    return formatUsers;
+  }
 
   @Get(':id')
   findOne(@Param('id') id: string) {}

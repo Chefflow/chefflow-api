@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, InternalServerErrorException } from '@nestjs/common';
+import {
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -200,6 +203,130 @@ describe('UsersService', () => {
       const result = await service.create(userWithPassword);
 
       expect(result.passwordHash).toBe('hashed_password_123');
+    });
+  });
+
+  describe('findAll', () => {
+    const mockUsers = [
+      {
+        id: 1,
+        username: 'user1',
+        email: 'user1@example.com',
+        passwordHash: 'hash123',
+        name: 'User One',
+        image: null,
+        provider: 'LOCAL',
+        providerId: null,
+        createdAt: new Date('2023-01-01'),
+        updatedAt: new Date('2023-01-01'),
+      },
+      {
+        id: 2,
+        username: 'user2',
+        email: 'user2@example.com',
+        passwordHash: 'hash456',
+        name: 'User Two',
+        image: 'https://example.com/avatar.jpg',
+        provider: 'GOOGLE',
+        providerId: 'google-123',
+        createdAt: new Date('2023-01-02'),
+        updatedAt: new Date('2023-01-02'),
+      },
+    ];
+
+    it('should return all users successfully', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual(mockUsers);
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith();
+    });
+
+    it('should return empty array when no users exist', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual([]);
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw InternalServerErrorException when database fails', async () => {
+      const databaseError = new Error('Database connection failed');
+
+      mockPrismaService.user.findMany.mockRejectedValue(databaseError);
+
+      await expect(service.findAll()).rejects.toThrow(
+        new InternalServerErrorException('Failed to find users'),
+      );
+
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return users with different providers', async () => {
+      const mixedUsers = [
+        {
+          id: 1,
+          username: 'localuser',
+          email: 'local@example.com',
+          passwordHash: 'hash123',
+          name: 'Local User',
+          image: null,
+          provider: 'LOCAL',
+          providerId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: 2,
+          username: 'googleuser',
+          email: 'google@example.com',
+          passwordHash: null,
+          name: 'Google User',
+          image: 'https://example.com/avatar.jpg',
+          provider: 'GOOGLE',
+          providerId: 'google-456',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(mixedUsers);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual(mixedUsers);
+      expect(result[0].provider).toBe('LOCAL');
+      expect(result[1].provider).toBe('GOOGLE');
+      expect(result[1].providerId).toBe('google-456');
+    });
+
+    it('should return users with null optional fields', async () => {
+      const userWithNulls = [
+        {
+          id: 1,
+          username: 'minimaluser',
+          email: 'minimal@example.com',
+          passwordHash: null,
+          name: null,
+          image: null,
+          provider: 'LOCAL',
+          providerId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(userWithNulls);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual(userWithNulls);
+      expect(result[0].name).toBeNull();
+      expect(result[0].image).toBeNull();
+      expect(result[0].passwordHash).toBeNull();
     });
   });
 });

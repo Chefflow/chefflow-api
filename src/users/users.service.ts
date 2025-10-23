@@ -23,13 +23,20 @@ export class UsersService {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[];
           const field = target?.[0] || 'field';
-          throw new ConflictException(
-            `User with this ${field} already exists`,
-          );
+          throw new ConflictException(`User with this ${field} already exists`);
         }
       }
 
       throw new InternalServerErrorException('Failed to create user');
+    }
+  }
+
+  async findAll() {
+    try {
+      const users = await this.prisma.user.findMany();
+      return users;
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to find users');
     }
   }
 }
