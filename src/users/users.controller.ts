@@ -8,16 +8,20 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserEntity } from './entities/user.entity';
+import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createUserDto: CreateUserDto): Promise<UserEntity> {
@@ -25,14 +29,17 @@ export class UsersController {
     return new UserEntity(user);
   }
 
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getMe(@CurrentUser() user: any): Promise<UserEntity> {
+    return new UserEntity(user);
+  }
+
   @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<UserEntity[]> {
     const users = await this.usersService.findAll();
-    const formatUsers = users.map((user) => {
-      return new UserEntity(user);
-    });
-    return formatUsers;
+    return users.map((user) => new UserEntity(user));
   }
 
   @Get(':username')
@@ -47,14 +54,26 @@ export class UsersController {
   async update(
     @Param('username') username: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser: any,
   ): Promise<UserEntity> {
+    if (currentUser.username !== username) {
+      throw new ForbiddenException('You can only update your own profile');
+    }
+
     const user = await this.usersService.update(updateUserDto);
-    return user;
+    return new UserEntity(user);
   }
 
   @Delete(':username')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('username') username: string): Promise<void> {
+  async remove(
+    @Param('username') username: string,
+    @CurrentUser() currentUser: any,
+  ): Promise<void> {
+    if (currentUser.username !== username) {
+      throw new ForbiddenException('You can only delete your own account');
+    }
+
     await this.usersService.delete(username);
   }
 }

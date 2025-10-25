@@ -1,10 +1,12 @@
 import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
+import { Public } from './auth/decorators/public.decorator';
 
 @Controller()
 export class AppController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Public()
   @Get('health')
   getHealth(): { status: string; timestamp: string } {
     return {
@@ -13,6 +15,7 @@ export class AppController {
     };
   }
 
+  @Public()
   @Get('ready')
   async getReadiness(): Promise<{
     status: string;
