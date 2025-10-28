@@ -7,9 +7,11 @@ This document explains the Docker setup for ChefFlow API, including architecture
 - [Architecture Overview](#architecture-overview)
 - [Dockerfile Multi-Stage Build](#dockerfile-multi-stage-build)
 - [Docker Compose Services](#docker-compose-services)
+- [Quick Start](#quick-start)
 - [Development Workflows](#development-workflows)
-- [Common Commands](#common-commands)
+- [Common Commands Reference](#common-commands-reference)
 - [Troubleshooting](#troubleshooting)
+- [Best Practices](#best-practices)
 
 ## Architecture Overview
 
@@ -122,20 +124,140 @@ Resource limits: 1 CPU, 1GB RAM (max), 512MB (reserved)
 - Higher rate limits for development
 - CORS set to `*` by default
 
-## Development Workflows
+## Quick Start
 
-### Workflow 1: Local Development (Without Docker)
-
-Use this when you want to develop directly on your machine with PostgreSQL in Docker.
+### First Time Setup
 
 ```bash
-# Start PostgreSQL only
+# 1. Copy environment template
+cp .env.example .env
+
+# 2. Edit .env with your configuration
+# (database credentials, JWT secret, etc.)
+
+# 3. Start development environment
+pnpm run docker:dev
+
+# 4. View logs to verify everything started
+pnpm run docker:dev:logs
+```
+
+**Access Points:**
+- API: `http://localhost:3001`
+- Health check: `http://localhost:3001/health`
+- Readiness check: `http://localhost:3001/ready`
+
+### Daily Development Workflow
+
+```bash
+# Morning: Start development environment
+pnpm run docker:dev
+
+# Work on your code (hot-reload active)
+# ...
+
+# View logs if needed
+pnpm run docker:dev:logs
+
+# Evening: Stop environment
+pnpm run docker:down
+```
+
+## Development Workflows
+
+### Workflow 1: Docker Development (Recommended)
+
+**Best for:** Full development environment with production parity and hot-reload.
+
+**When to use:**
+- Daily development work
+- Testing with production-like environment
+- Team collaboration (consistent environment)
+
+**Commands:**
+
+```bash
+# Start development environment (port 3001)
+pnpm run docker:dev
+
+# View logs in real-time
+pnpm run docker:dev:logs
+
+# Stop environment
+pnpm run docker:down
+
+# Restart container (after .env changes)
+pnpm run docker:restart
+```
+
+**Pros:**
+- Hot-reload works perfectly
+- Production-like environment
+- No local Node.js installation needed
+- Consistent across team members
+
+**Cons:**
+- Slightly slower than native development
+- Requires Docker installation
+
+### Workflow 2: Installing New Dependencies
+
+**When you add new packages to package.json:**
+
+```bash
+# Option 1: Quick rebuild (recommended for most cases)
+pnpm run docker:dev:rebuild
+
+# Option 2: Full clean rebuild (if Option 1 fails)
+pnpm run docker:dev:clean
+```
+
+**What each command does:**
+
+- **`docker:dev:rebuild`**: Rebuilds without cache and restarts
+  - Fast and usually sufficient
+  - Use this first
+
+- **`docker:dev:clean`**: Removes pnpm-cache, rebuilds, and restarts
+  - More thorough, takes longer
+  - Use when having dependency issues
+  - Solves "Cannot find module" errors
+
+**Example workflow:**
+
+```bash
+# 1. Install new package
+pnpm add @nestjs/swagger
+
+# 2. Rebuild container
+pnpm run docker:dev:rebuild
+
+# 3. Verify it worked
+pnpm run docker:dev:logs
+```
+
+### Workflow 3: Local Development (Without Docker)
+
+**Best for:** Quick iteration without Docker overhead.
+
+**When to use:**
+- Rapid prototyping
+- Debugging with Node.js debugger
+- When Docker is slow on your machine
+
+**Setup:**
+
+```bash
+# 1. Start PostgreSQL only (in Docker)
 docker-compose up -d postgres
 
-# Run migrations
-pnpm prisma migrate dev
+# 2. Update DATABASE_URL in .env to use localhost
+# DATABASE_URL="postgresql://chefflow_user:chefflow_password@localhost:5432/chefflow?schema=public"
 
-# Start development server locally
+# 3. Run migrations
+pnpm run prisma:migrate
+
+# 4. Start development server
 pnpm run start:dev
 ```
 
@@ -147,49 +269,25 @@ pnpm run start:dev
 **Cons:**
 - Requires local Node.js and pnpm installation
 - Different environment from production
+- Database still needs Docker
 
-### Workflow 2: Development with Docker (Hot-Reload) - RECOMMENDED
+### Workflow 4: Production Testing
 
-Use this for the best development experience with production parity.
+**Best for:** Testing production builds before deployment.
 
-```bash
-# Start PostgreSQL + app-dev
-pnpm run docker:dev
+**When to use:**
+- Before deploying to production
+- Testing optimized builds
+- Verifying Docker configuration
 
-# Or using docker-compose directly
-docker-compose --profile dev up -d
-
-# View logs in real-time
-docker-compose logs app-dev -f
-
-# Stop all services
-pnpm run docker:down
-```
-
-**Pros:**
-- Hot-reload works perfectly
-- Production-like environment
-- No local Node.js installation needed
-- Consistent across team members
-
-**Cons:**
-- Slightly slower than native development
-
-**Access Points:**
-- API: `http://localhost:3001`
-- Health check: `http://localhost:3001/health`
-- Readiness check: `http://localhost:3001/ready`
-
-### Workflow 3: Production Testing
-
-Use this to test the production build locally.
+**Commands:**
 
 ```bash
-# Build and start production containers
+# Start production environment (port 3000)
 pnpm run docker:up
 
-# Or using docker-compose directly
-docker-compose up -d
+# View logs
+pnpm run docker:logs
 
 # Rebuild after code changes
 docker-compose up -d --build app
@@ -203,7 +301,29 @@ pnpm run docker:down
 - Health check: `http://localhost:3000/health`
 - Readiness check: `http://localhost:3000/ready`
 
-## Common Commands
+## Common Commands Reference
+
+### Most Used Commands (Your Daily Workflow)
+
+```bash
+# Start development
+pnpm run docker:dev
+
+# Stop development
+pnpm run docker:down
+
+# View logs
+pnpm run docker:dev:logs
+
+# Restart after .env changes
+pnpm run docker:restart
+
+# Rebuild after installing dependencies
+pnpm run docker:dev:rebuild
+
+# Full clean rebuild (fixes dependency issues)
+pnpm run docker:dev:clean
+```
 
 ### Service Management
 
@@ -213,58 +333,75 @@ docker-compose ps
 docker-compose --profile dev ps  # Include app-dev
 
 # Start services
-pnpm run docker:up              # Production
-pnpm run docker:dev             # Development
+pnpm run docker:dev              # Development (port 3001)
+pnpm run docker:up               # Production (port 3000)
 
 # Stop services
-pnpm run docker:down            # Stop and remove containers
-docker-compose stop             # Stop without removing
+pnpm run docker:down             # Stop and remove containers
+docker-compose stop              # Stop without removing
+
+# Restart services
+pnpm run docker:restart          # Restart dev container
+docker-compose restart app-dev   # Same as above
+docker-compose restart postgres  # Restart database
 ```
 
 ### Logs and Debugging
 
 ```bash
-# View logs
-docker-compose logs app -f           # Production logs
+# View logs (pnpm commands)
+pnpm run docker:dev:logs         # Development logs (follow mode)
+pnpm run docker:logs             # All services logs (follow mode)
+
+# View logs (docker-compose commands)
 docker-compose logs app-dev -f       # Development logs
+docker-compose logs app -f           # Production logs
 docker-compose logs postgres -f      # Database logs
+docker-compose logs app-dev --tail=100  # Last 100 lines
 
-# View specific number of log lines
-docker-compose logs app --tail=100
-
-# View logs for all services
-docker-compose logs -f
+# Attach to container (see logs in foreground)
+pnpm run docker:dev:attach
 ```
 
-### Executing Commands in Containers
+### Executing Commands Inside Containers
 
 ```bash
 # Open shell in container
 docker-compose exec app-dev sh
 docker-compose exec app sh
 
-# Run Prisma Studio
-docker-compose exec app-dev pnpm prisma studio
+# Run tests inside container
+docker-compose exec app-dev pnpm run test
+docker-compose exec app-dev pnpm run test:e2e
 
-# Run migrations manually
-docker-compose exec app-dev pnpm prisma migrate dev
+# Run Prisma commands
+docker-compose exec app-dev pnpm prisma studio
+docker-compose exec app-dev pnpm prisma migrate dev --name add_field
 docker-compose exec app pnpm prisma migrate deploy
 
 # Access PostgreSQL directly
 docker-compose exec postgres psql -U chefflow_user -d chefflow
+
+# Inside PostgreSQL, useful commands:
+# \dt              - List all tables
+# \d table_name    - Describe table
+# \q               - Exit
 ```
 
 ### Building and Rebuilding
 
 ```bash
-# Build specific service
+# Rebuild commands (pnpm)
+pnpm run docker:dev:rebuild      # Quick rebuild without cache
+pnpm run docker:dev:clean        # Full clean: remove cache + rebuild
+
+# Manual rebuild commands
+docker-compose build app-dev                    # Build with cache
+docker-compose build --no-cache app-dev         # Build without cache
+docker-compose up -d --build app-dev           # Build and start
+
+# Build production
 docker-compose build app
-docker-compose build app-dev
-
-# Build and start
-docker-compose up -d --build
-
-# Build without cache (clean build)
 docker-compose build --no-cache app
 ```
 
@@ -274,30 +411,421 @@ docker-compose build --no-cache app
 # List volumes
 docker volume ls
 
-# Inspect volume
+# Inspect specific volume
 docker volume inspect chefflow-api_postgres_data
+docker volume inspect chefflow-api_pnpm-cache
 
-# Remove volumes (WARNING: deletes data)
-docker-compose down -v
+# Remove pnpm cache (when having dependency issues)
+pnpm run docker:clean:cache
+# or
+docker volume rm chefflow-api_pnpm-cache
 
-# Remove specific volume
+# Remove postgres data (WARNING: deletes all data!)
 docker volume rm chefflow-api_postgres_data
+
+# Remove all volumes (WARNING: deletes all data!)
+docker-compose down -v
 ```
 
 ### Clean Up
 
 ```bash
-# Remove containers and networks
-docker-compose down
+# Clean up development environment
+pnpm run docker:clean            # Remove containers + volumes
 
-# Remove containers, networks, and volumes
+# Manual cleanup
+docker-compose down               # Remove containers
+docker-compose down -v            # Remove containers + volumes
+docker-compose down --rmi all -v  # Remove everything + images
+
+# System-wide Docker cleanup
+docker system prune -a --volumes  # Clean entire Docker system
+docker volume prune               # Remove unused volumes
+docker image prune -a             # Remove unused images
+```
+
+## Troubleshooting
+
+### New Dependencies Not Installing (pnpm-cache issue)
+
+**Symptoms:**
+- TypeScript compilation errors: `Cannot find module 'package-name'`
+- Package exists in `package.json` but not available in container
+- `pnpm install` inside container doesn't help
+- Container restart doesn't fix the issue
+
+**Root Cause:**
+The `pnpm-cache` volume retains old state and prevents new dependencies from installing properly.
+
+**Solution (Quick):**
+
+```bash
+# One command to fix everything
+pnpm run docker:dev:clean
+```
+
+**Solution (Step by Step):**
+
+```bash
+# 1. Stop all services
+pnpm run docker:down
+
+# 2. Remove pnpm cache
+pnpm run docker:clean:cache
+# or: docker volume rm chefflow-api_pnpm-cache
+
+# 3. Rebuild without cache
+docker-compose build --no-cache app-dev
+
+# 4. Start services
+pnpm run docker:dev
+```
+
+**Verification:**
+
+```bash
+# Check packages installed successfully
+docker-compose logs app-dev | grep "Packages:"
+# Should show: Packages: +742 (or similar number)
+
+# Verify application started without errors
+pnpm run docker:dev:logs
+# Should see: "Nest application successfully started"
+```
+
+**Prevention:**
+- After adding dependencies, always use: `pnpm run docker:dev:rebuild`
+- If issues persist, use: `pnpm run docker:dev:clean`
+
+### Container Keeps Restarting
+
+**Symptoms:**
+- Container starts and immediately stops
+- Continuous restart loop
+
+**Check logs:**
+
+```bash
+docker-compose logs app-dev --tail=50
+```
+
+**Common Causes and Solutions:**
+
+1. **Database not ready**
+   - Wait for healthcheck (usually 10-30 seconds)
+   - Check: `docker-compose ps` - postgres should be "healthy"
+
+2. **Migration errors**
+   ```bash
+   # View migration errors
+   docker-compose logs app-dev | grep "prisma"
+
+   # Fix: Reset migrations
+   docker-compose exec app-dev pnpm prisma migrate dev
+   ```
+
+3. **Missing environment variables**
+   ```bash
+   # Check .env file exists and has required variables
+   cat .env | grep -E "DATABASE_URL|JWT_SECRET|PORT"
+
+   # Copy from template if missing
+   cp .env.example .env
+   ```
+
+4. **Port already in use**
+   ```bash
+   # Check what's using port 3001
+   lsof -i :3001
+
+   # Kill process or change port in docker-compose.yml
+   ```
+
+### Database Connection Refused
+
+**Symptoms:**
+- App can't connect to database
+- Error: "ECONNREFUSED" or "Connection refused"
+
+**Solutions:**
+
+```bash
+# 1. Check if postgres is healthy
+docker-compose ps
+# postgres should show "healthy" status
+
+# 2. Check database logs
+docker-compose logs postgres
+
+# 3. Verify DATABASE_URL in .env
+# IMPORTANT: Must use 'postgres' hostname, not 'localhost'
+# ✅ Correct: postgresql://user:pass@postgres:5432/db
+# ❌ Wrong:   postgresql://user:pass@localhost:5432/db
+
+# 4. Restart database
+docker-compose restart postgres
+
+# 5. Test readiness endpoint
+curl http://localhost:3001/ready
+```
+
+### Hot-Reload Not Working
+
+**Symptoms:**
+- Code changes don't reflect in running app
+- Need to restart container to see changes
+
+**Solutions:**
+
+```bash
+# 1. Check volumes are mounted correctly
+docker-compose config
+# Should see: .:/app under volumes
+
+# 2. Restart container
+pnpm run docker:restart
+
+# 3. Rebuild if necessary
+pnpm run docker:dev:rebuild
+
+# 4. Check file is not in excluded directory
+# node_modules, dist, .git are excluded from hot-reload
+```
+
+### Migration Errors
+
+**Symptoms:**
+- "Migration failed" errors
+- Database schema out of sync
+
+**Solutions:**
+
+```bash
+# Option 1: Apply migrations manually
+docker-compose exec app-dev pnpm prisma migrate dev
+
+# Option 2: Reset database (WARNING: deletes all data!)
 docker-compose down -v
+docker volume rm chefflow-api_postgres_data
+pnpm run docker:dev
 
-# Remove everything including images
-docker-compose down --rmi all -v
+# Option 3: Reset only migrations
+pnpm run prisma:migrate:reset
 
-# Clean entire Docker system
+# View migration history
+docker-compose exec app-dev pnpm prisma migrate status
+```
+
+### Port Already in Use
+
+**Symptoms:**
+- "Address already in use" error
+- Container fails to start
+
+**Solutions:**
+
+```bash
+# Find what's using the port
+lsof -i :3000
+lsof -i :3001
+lsof -i :5432
+
+# Kill the process
+kill -9 <PID>
+
+# Or change port in docker-compose.yml
+# Change: "3001:3000" to "3002:3000"
+```
+
+### Out of Disk Space
+
+**Symptoms:**
+- "no space left on device" error
+- Docker commands fail
+
+**Solutions:**
+
+```bash
+# Check Docker disk usage
+docker system df
+
+# Clean up unused resources
 docker system prune -a --volumes
+
+# Remove unused images
+docker image prune -a
+
+# Remove unused volumes
+docker volume prune
+
+# Remove specific unused volumes
+docker volume ls
+docker volume rm <volume_name>
+```
+
+### Permission Errors with Volumes
+
+**Symptoms:**
+- "Permission denied" errors
+- Files can't be written
+
+**Solutions:**
+
+```bash
+# Fix permissions inside container
+docker-compose exec app-dev chown -R node:node /app
+
+# Or rebuild with correct permissions
+pnpm run docker:dev:rebuild
+```
+
+### TypeScript Compilation Errors After Pull
+
+**Symptoms:**
+- After `git pull`, TypeScript errors appear
+- Types seem out of sync
+
+**Solutions:**
+
+```bash
+# 1. Regenerate Prisma Client
+docker-compose exec app-dev pnpm prisma generate
+
+# 2. Rebuild container
+pnpm run docker:dev:rebuild
+
+# 3. If still failing, full clean
+pnpm run docker:dev:clean
+```
+
+### Environment Variables Not Updating
+
+**Symptoms:**
+- Changed .env but app still uses old values
+
+**Solutions:**
+
+```bash
+# Restart container to reload .env
+pnpm run docker:restart
+
+# If not working, rebuild
+pnpm run docker:dev:rebuild
+```
+
+## Best Practices
+
+### Development
+
+1. **Use the right command for the job**
+   - Daily work: `pnpm run docker:dev`
+   - After installing packages: `pnpm run docker:dev:rebuild`
+   - Dependency issues: `pnpm run docker:dev:clean`
+
+2. **Monitor logs regularly**
+   ```bash
+   pnpm run docker:dev:logs
+   ```
+   Helps catch issues early
+
+3. **Keep .env updated**
+   - Check `.env.example` when pulling changes
+   - Never commit `.env` with secrets
+
+4. **Use hot-reload effectively**
+   - Most changes reload automatically
+   - Changes to `package.json` require rebuild
+   - Changes to `.env` require restart
+
+### Production
+
+1. **Test production builds locally**
+   ```bash
+   pnpm run docker:up
+   ```
+   Test before deploying
+
+2. **Run migrations separately in production**
+   ```bash
+   pnpm prisma migrate deploy
+   ```
+   Don't use interactive migrations in production
+
+3. **Use environment-specific secrets**
+   - Never use default passwords in production
+   - Generate strong `JWT_SECRET`
+   ```bash
+   openssl rand -base64 32
+   ```
+
+4. **Monitor resource usage**
+   - Resource limits configured in `docker-compose.yml`
+   - Adjust based on your server capacity
+
+### Database
+
+1. **Backup regularly**
+   ```bash
+   # Backup postgres_data volume
+   docker run --rm -v chefflow-api_postgres_data:/data -v $(pwd):/backup \
+     alpine tar czf /backup/postgres-backup.tar.gz /data
+   ```
+
+2. **Don't delete volumes accidentally**
+   - Be careful with `-v` flag in `docker-compose down -v`
+   - This deletes ALL data
+
+3. **Use Prisma Studio for data inspection**
+   ```bash
+   docker-compose exec app-dev pnpm prisma studio
+   # Opens GUI at http://localhost:5555
+   ```
+
+### Images
+
+1. **Tag images properly**
+   ```bash
+   docker build -t chefflow-api:v1.0.0 .
+   ```
+   Use semantic versioning
+
+2. **Keep images small**
+   - Multi-stage builds already optimize this
+   - Don't add unnecessary files
+
+3. **Scan for vulnerabilities**
+   ```bash
+   docker scan chefflow-api-app
+   ```
+
+## Quick Reference Card
+
+```bash
+# 🚀 Start/Stop
+pnpm run docker:dev              # Start development
+pnpm run docker:down             # Stop everything
+
+# 📦 After Installing Dependencies
+pnpm run docker:dev:rebuild      # Quick rebuild
+pnpm run docker:dev:clean        # Full clean rebuild
+
+# 📋 Logs
+pnpm run docker:dev:logs         # View dev logs
+
+# 🔄 Restart
+pnpm run docker:restart          # Restart container
+
+# 🗄️ Database
+docker-compose exec postgres psql -U chefflow_user -d chefflow
+docker-compose exec app-dev pnpm prisma studio
+
+# 🧪 Testing
+docker-compose exec app-dev pnpm run test
+docker-compose exec app-dev pnpm run test:e2e
+
+# 🧹 Cleanup
+pnpm run docker:clean            # Remove all
+pnpm run docker:clean:cache      # Remove pnpm cache only
 ```
 
 ## Environment Variables
@@ -318,6 +846,14 @@ PORT=3000
 JWT_SECRET="your-secret-key"
 JWT_EXPIRES_IN="7d"
 
+# OAuth
+GOOGLE_CLIENT_ID="your-client-id"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
+
+# Frontend
+FRONTEND_URL="http://localhost:5173"
+
 # CORS
 ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
 
@@ -326,7 +862,10 @@ THROTTLE_TTL=60
 THROTTLE_LIMIT=10
 ```
 
-**Note:** When running in Docker, `DATABASE_URL` automatically uses the `postgres` service name instead of `localhost`.
+**Important Notes:**
+- When running in Docker, `DATABASE_URL` uses `postgres` hostname (not `localhost`)
+- Generate strong `JWT_SECRET` for production: `openssl rand -base64 32`
+- Never commit `.env` file with real secrets
 
 ## Port Mapping
 
@@ -335,191 +874,6 @@ THROTTLE_LIMIT=10
 | postgres   | 5432           | 5432      | PostgreSQL database  |
 | app        | 3000           | 3000      | Production API       |
 | app-dev    | 3000           | 3001      | Development API      |
-
-## Troubleshooting
-
-### Container keeps restarting
-
-```bash
-# Check logs for errors
-docker-compose logs app --tail=50
-
-# Common causes:
-# 1. Database not ready - wait for healthcheck
-# 2. Migration errors - check Prisma migrations
-# 3. Missing environment variables - verify .env file
-```
-
-### Database connection refused
-
-```bash
-# Ensure postgres is healthy
-docker-compose ps
-
-# Check database logs
-docker-compose logs postgres
-
-# Verify DATABASE_URL uses 'postgres' hostname (not localhost)
-# Correct: postgresql://user:pass@postgres:5432/db
-# Wrong:   postgresql://user:pass@localhost:5432/db
-```
-
-### Hot-reload not working in app-dev
-
-```bash
-# Ensure volumes are mounted correctly
-docker-compose config
-
-# Restart the service
-docker-compose restart app-dev
-
-# Rebuild if necessary
-docker-compose up -d --build app-dev
-```
-
-### Migration errors
-
-```bash
-# Reset database (WARNING: deletes all data)
-docker-compose down -v
-docker volume rm chefflow-api_postgres_data
-pnpm run docker:dev
-
-# Or apply migrations manually
-docker-compose exec app-dev pnpm prisma migrate dev
-```
-
-### Port already in use
-
-```bash
-# Find process using the port
-lsof -i :3000
-lsof -i :3001
-lsof -i :5432
-
-# Kill the process or change ports in docker-compose.yml
-```
-
-### Out of disk space
-
-```bash
-# Clean up Docker resources
-docker system prune -a --volumes
-
-# Remove unused images
-docker image prune -a
-
-# Remove unused volumes
-docker volume prune
-```
-
-### Permission errors with volumes
-
-```bash
-# If running as non-root user, ensure permissions are correct
-docker-compose exec app-dev chown -R node:node /app
-```
-
-### New dependencies not installing (pnpm-cache issue)
-
-**Symptoms:**
-- TypeScript compilation errors for newly added packages (e.g., `Cannot find module 'passport-google-oauth20'`)
-- Dependencies exist in `package.json` but are not available in the container
-- `pnpm install` inside container doesn't resolve the issue
-- Container restart doesn't help
-
-**Root Cause:**
-The `pnpm-cache` volume can become corrupted or retain old state, preventing new dependencies from being properly installed even after running `pnpm install`.
-
-**Solution:**
-Remove the pnpm-cache volume and rebuild the container without cache:
-
-```bash
-# Stop all services
-pnpm run docker:down
-
-# Remove the pnpm-cache volume
-docker volume rm chefflow-api_pnpm-cache
-
-# Rebuild without cache (forces fresh dependency installation)
-docker-compose build --no-cache app-dev
-
-# Start the services
-pnpm run docker:dev
-```
-
-**Verification:**
-```bash
-# Check that all packages were installed successfully
-docker-compose logs app-dev | grep "Packages:"
-# Should show: Packages: +742 (or similar)
-
-# Verify application starts without errors
-docker-compose logs app-dev --tail=30 | grep "successfully started"
-```
-
-**Alternative (if only pnpm-cache is the issue):**
-```bash
-# Remove only pnpm-cache volume and rebuild
-docker volume rm chefflow-api_pnpm-cache
-docker-compose up -d --build app-dev
-```
-
-**Prevention:**
-- After adding new dependencies to `package.json`, always rebuild the container: `docker-compose up -d --build app-dev`
-- If you experience repeated issues, consider removing the pnpm-cache volume periodically during development
-- This issue is specific to the `pnpm-cache` volume and doesn't affect the `postgres_data` volume
-
-## Best Practices
-
-### Development
-
-1. **Always use `app-dev` for development** - It has hot-reload and better debugging
-2. **Use `pnpm run docker:dev`** - Simpler than remembering docker-compose flags
-3. **Keep `.env` file updated** - Copy from `.env.example` when variables change
-4. **Monitor logs regularly** - Use `docker-compose logs -f` to catch issues early
-
-### Production
-
-1. **Test production builds locally** - Use `pnpm run docker:up` before deploying
-2. **Use environment-specific secrets** - Never commit real secrets to `.env`
-3. **Run migrations separately** - In production, run `prisma migrate deploy` before starting app
-4. **Set resource limits** - Already configured in `docker-compose.yml`
-
-### Database
-
-1. **Backup postgres_data volume** - Use `docker run --rm -v` to backup
-2. **Use named volumes** - Already configured for persistence
-3. **Don't delete volumes accidentally** - Be careful with `-v` flag
-
-### Images
-
-1. **Tag images properly** - Use semantic versioning for production
-2. **Keep images small** - Multi-stage builds already optimize this
-3. **Scan for vulnerabilities** - Use `docker scan chefflow-api-app`
-
-## Quick Reference
-
-```bash
-# First time setup
-cp .env.example .env
-pnpm run docker:dev
-
-# Daily development
-pnpm run docker:dev           # Start development environment
-docker-compose logs app-dev -f # View logs
-
-# Testing changes
-pnpm run docker:up --build    # Test production build
-
-# Clean slate
-docker-compose down -v         # Remove everything
-pnpm run docker:dev           # Start fresh
-
-# Database access
-docker-compose exec postgres psql -U chefflow_user -d chefflow
-docker-compose exec app-dev pnpm prisma studio
-```
 
 ## Additional Resources
 
