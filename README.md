@@ -1,304 +1,170 @@
 # ChefFlow API
 
-A NestJS backend application with Prisma ORM, PostgreSQL, and Docker support for production-ready deployments.
+A production-ready NestJS backend application with JWT and OAuth2 authentication, Prisma ORM, PostgreSQL, and comprehensive Docker support.
 
 ## 🚀 Technology Stack
 
 - **Framework**: NestJS 11.x
 - **Runtime**: Node.js 20+
-- **Package Manager**: pnpm 10+ (pinned to 10.16.1)
+- **Package Manager**: pnpm 10.19.0
 - **Database**: PostgreSQL 16
 - **ORM**: Prisma 6.16.1
 - **Language**: TypeScript 5.7+
+- **Authentication**: JWT + Google OAuth2
 - **Containerization**: Docker & Docker Compose
+
+## ✨ Features
+
+- **Hybrid Authentication System**: Traditional JWT (username/password) + Google OAuth2
+- **Account Linking**: Seamlessly link OAuth accounts to existing local accounts
+- **Health Checks**: Comprehensive liveness and readiness probes for production deployments
+- **Security**: Helmet, CORS, rate limiting, and input validation
+- **Hot-Reload Development**: Docker-based development environment with instant code updates
+- **Production-Ready**: Multi-stage Docker builds with optimized images
+- **Comprehensive Testing**: 139 tests (117 unit + 22 e2e) ensuring reliability
 
 ## 📋 Prerequisites
 
-- [Node.js 20+](https://nodejs.org/)
-- [pnpm 10+](https://pnpm.io/)
-- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) (required)
+- [Node.js 20+](https://nodejs.org/) (optional, for local development)
+- [pnpm 10+](https://pnpm.io/) (optional, for local development)
 
-## 🛠️ Initial Setup
+## 🛠️ Quick Start
 
-1. **Clone the repository and install dependencies**:
+1. **Clone the repository**:
    ```bash
-   pnpm install
+   git clone <repository-url>
+   cd chefflow-api
    ```
 
 2. **Configure environment variables**:
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` with your configuration (database credentials, JWT secret, etc.)
+   Edit `.env` and set at minimum:
+   - `DATABASE_URL` (auto-configured for Docker)
+   - `JWT_SECRET` (generate with: `openssl rand -base64 32`)
+   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (if using OAuth)
 
-## 🔄 Development Modes
+3. **Start the development environment**:
+   ```bash
+   pnpm run docker:dev
+   ```
 
-You have **three options** for running the application. Choose based on your workflow:
+4. **Verify it's running**:
+   ```bash
+   curl http://localhost:3001/health
+   # Response: {"status":"ok","timestamp":"..."}
+   ```
 
-### Option 1: 🐳 Docker Development (Recommended for full-stack)
+That's it! The API is now running on **http://localhost:3001** with hot-reload enabled.
 
-**Best for**: Full development environment with hot-reload and isolated services.
+> 📘 **For detailed Docker workflows, troubleshooting, and best practices, see [DOCKER.md](./DOCKER.md)**
+
+## 🔄 Development Workflows
+
+### Docker Development (Recommended)
 
 ```bash
-# Start development server with hot-reload on port 3001
+# Start development with hot-reload (port 3001)
 pnpm run docker:dev
 
-# Or using docker-compose directly
-docker-compose --profile dev up
-```
+# View logs
+pnpm run docker:dev:logs
 
-**Features**:
-- ✅ Hot-reload enabled (changes reflect instantly)
-- ✅ Your local files are mounted into the container
-- ✅ PostgreSQL running in Docker
-- ✅ Automatic Prisma migrations
-- ✅ Port: **3001**
-
-**When to use**: When you want Docker isolation but need to actively develop and see code changes immediately.
-
----
-
-### Option 2: 💻 Local Development (Without Docker)
-
-**Best for**: Quick iteration without Docker overhead.
-
-```bash
-# Start development server with hot-reload
-pnpm run start:dev
-```
-
-**Features**:
-- ✅ Fastest startup time
-- ✅ Hot-reload enabled
-- ✅ Direct access to node_modules
-- ✅ Port: **3000** (configurable in .env)
-
-**Requirements**:
-- PostgreSQL must be running (locally or via Docker: `docker-compose up postgres`)
-- Update `DATABASE_URL` in `.env` to point to your PostgreSQL instance
-
-**When to use**: When you prefer local development without containers or need direct debugging access.
-
----
-
-### Option 3: 📦 Docker Production Mode
-
-**Best for**: Testing production builds and deployment validation.
-
-```bash
-# Start production server (optimized build)
-pnpm run docker:up
-
-# Or using docker-compose directly
-docker-compose up -d
-```
-
-**Features**:
-- ✅ Production-optimized build
-- ✅ Multi-stage Docker build
-- ✅ Automatic migrations on startup
-- ✅ Health checks configured
-- ✅ Port: **3000**
-
-**Note**: No hot-reload. Requires rebuild for code changes.
-
-**When to use**: Testing production configuration, deployment validation, or running the final build locally.
-
----
-
-## 🗂️ Quick Reference: Common Commands
-
-### Development
-```bash
-# Install dependencies
-pnpm install
-
-# Run local development (without Docker)
-pnpm run start:dev
-
-# Build the application
-pnpm run build
-
-# Run production build locally (without Docker)
-pnpm run start:prod
-
-# Format code
-pnpm run format
-
-# Lint and fix
-pnpm run lint
-```
-
-### Docker Operations
-```bash
-# Development mode with hot-reload (port 3001)
-pnpm run docker:dev
-
-# Production mode (port 3000)
-pnpm run docker:up
-
-# Stop all services
+# Stop services
 pnpm run docker:down
-
-# Build Docker image
-pnpm run docker:build
-
-# View application logs
-docker-compose logs -f app
-
-# View all logs (app + database)
-docker-compose logs -f
-
-# Access container shell
-docker-compose exec app sh
 ```
 
-### Database (Prisma)
+### Local Development (Without Docker)
+
 ```bash
-# Generate Prisma Client (run after schema changes)
-pnpm run prisma:generate
+# Requires PostgreSQL running separately
+pnpm install
+pnpm run start:dev  # Port 3000
+```
 
-# Create and apply migration (development)
-pnpm run prisma:migrate
+### Production Testing
 
-# Apply migrations (production - non-interactive)
-pnpm run prisma:migrate:deploy
+```bash
+# Test production build locally (port 3000)
+pnpm run docker:up
+```
 
-# Open Prisma Studio (database GUI)
-pnpm run prisma:studio
+> 📘 **See [DOCKER.md](./DOCKER.md) for detailed workflows, dependency management, and troubleshooting**
 
-# Seed database
-pnpm run prisma:seed
+---
 
-# Inside Docker container
-docker-compose exec app pnpm prisma studio
-docker-compose exec app pnpm prisma migrate dev --name migration_name
+## 📋 Essential Commands
+
+### Docker (Most Common)
+```bash
+pnpm run docker:dev              # Start development
+pnpm run docker:down             # Stop services
+pnpm run docker:dev:logs         # View logs
+pnpm run docker:dev:rebuild      # Rebuild after installing dependencies
 ```
 
 ### Testing
 ```bash
-# Run unit tests
-pnpm run test
-
-# Run tests in watch mode
-pnpm run test:watch
-
-# Run e2e tests
-pnpm run test:e2e
-
-# Generate coverage report
-pnpm run test:cov
-
-# Debug tests
-pnpm run test:debug
+pnpm run test                    # Unit tests
+pnpm run test:e2e               # End-to-end tests
+pnpm run test:cov               # Coverage report
 ```
 
-## 🏥 Health Checks
-
-The application exposes two health check endpoints:
-
-### 1. Liveness Probe - `GET /health`
-Returns `200 OK` if the application is running.
-
+### Database
 ```bash
-curl http://localhost:3000/health
-# Response: {"status":"ok","timestamp":"2025-10-20T15:34:52.064Z"}
+pnpm run prisma:generate         # Regenerate Prisma Client
+pnpm run prisma:migrate          # Create and apply migration
+pnpm run prisma:studio           # Open database GUI
 ```
 
-**Use case**: Docker/Kubernetes liveness checks to restart unhealthy containers.
-
-### 2. Readiness Probe - `GET /ready`
-Returns `200 OK` if the application AND database are ready.
-Returns `503 Service Unavailable` if the database is unreachable.
-
+### Development (Local)
 ```bash
-curl http://localhost:3000/ready
-# Response: {"status":"ready","database":"connected","timestamp":"2025-10-20T15:34:34.184Z"}
+pnpm install                     # Install dependencies
+pnpm run start:dev              # Start with hot-reload
+pnpm run build                   # Build application
+pnpm run format                  # Format code
+pnpm run lint                    # Lint and fix
 ```
 
-**Use case**: Load balancer readiness checks to route traffic only to healthy instances.
+> 📘 **For complete command reference and Docker operations, see [DOCKER.md](./DOCKER.md)**
 
-## 🗄️ Database Workflow
+## 🏥 API Endpoints
 
-### Making Schema Changes
-
-1. **Edit the Prisma schema**:
-   ```bash
-   # Edit prisma/schema.prisma
-   ```
-
-2. **Generate Prisma Client** (updates TypeScript types):
-   ```bash
-   pnpm run prisma:generate
-   ```
-
-3. **Create a migration**:
-   ```bash
-   # Local development
-   pnpm run prisma:migrate
-
-   # Or in Docker
-   docker-compose exec app pnpm prisma migrate dev --name add_user_fields
-   ```
-
-4. **Migration files** are stored in `prisma/migrations/`
-
-### Accessing the Database
+### Health Checks
 
 ```bash
-# Via Prisma Studio (GUI)
-pnpm run prisma:studio
+# Liveness probe (app is running)
+GET /health
+# Response: {"status":"ok","timestamp":"..."}
 
-# Direct PostgreSQL access (Docker)
-docker-compose exec postgres psql -U chefflow_user -d chefflow
+# Readiness probe (app + database ready)
+GET /ready
+# Response: {"status":"ready","database":"connected","timestamp":"..."}
+```
 
-# Test database connectivity
-curl http://localhost:3000/ready
+### Authentication
+
+```bash
+# Local authentication (JWT)
+POST /auth/register      # Register new user
+POST /auth/login         # Login with username/password
+GET  /auth/profile       # Get user profile (protected)
+
+# OAuth2 authentication
+GET  /auth/google        # Initiate Google OAuth flow
+GET  /auth/google/callback  # Google OAuth callback
 ```
 
 ## 🔒 Security Features
 
-- **Helmet**: HTTP security headers
-- **CORS**: Configurable via `ALLOWED_ORIGINS` in `.env`
-- **Rate Limiting**: Global throttling (default: 10 requests per 60 seconds)
-- **Input Validation**: Global validation pipe with class-validator
-- **Environment Variables**: Sensitive data isolated in `.env`
-
-### Customizing Rate Limits
-
-```typescript
-import { Throttle, SkipThrottle } from '@nestjs/throttler';
-
-// Custom limit for specific endpoint
-@Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
-@Post('login')
-login() {}
-
-// Skip throttling for specific endpoint
-@SkipThrottle()
-@Get('public')
-getPublic() {}
-```
-
-## 🐳 Docker Architecture
-
-### Multi-stage Dockerfile
-- `base`: Node 20 slim + OpenSSL + pnpm setup
-- `dependencies`: Dependency installation
-- `development`: Hot-reload enabled (used by `docker:dev`)
-- `build`: TypeScript compilation + Prisma generation
-- `production`: Optimized final image with non-root user
-
-### Services
-- **postgres**: PostgreSQL 16 with health checks and persistent volume
-- **app**: Production build (port 3000)
-- **app-dev**: Development build with hot-reload (port 3001)
-
-### Resource Limits
-Resource limits are configured in `docker-compose.yml`:
-- **PostgreSQL**: 1 CPU, 1GB RAM (max)
-- **App (production)**: 1 CPU, 512MB RAM (max)
-- **App (dev)**: 1 CPU, 1GB RAM (max)
+- **Authentication**: JWT + Google OAuth2 with account linking
+- **HTTP Security**: Helmet middleware with security headers
+- **CORS**: Configurable allowed origins
+- **Rate Limiting**: 10 requests per 60 seconds (configurable)
+- **Input Validation**: Automatic DTO validation with class-validator
+- **Environment Security**: All secrets in `.env` file
 
 ## 📁 Project Structure
 
@@ -306,81 +172,80 @@ Resource limits are configured in `docker-compose.yml`:
 chefflow-api/
 ├── prisma/
 │   ├── schema.prisma          # Database schema
-│   ├── migrations/            # Migration history
-│   └── seed.ts               # Database seed script
+│   └── migrations/            # Migration history
 ├── src/
-│   ├── main.ts               # Application entry point
-│   ├── app.module.ts         # Root module
-│   ├── app.controller.ts     # Health check endpoints
-│   ├── app.service.ts        # Root service
-│   └── prisma.service.ts     # Prisma client with lifecycle hooks
-├── test/
-│   └── app.e2e-spec.ts       # E2E tests
+│   ├── auth/                  # Authentication module (JWT + OAuth)
+│   ├── users/                 # User management module
+│   ├── prisma/                # Prisma service
+│   ├── main.ts                # Application entry point
+│   └── app.module.ts          # Root module
+├── test/                      # Unit and e2e tests
 ├── .env                       # Environment variables (create from .env.example)
-├── .env.example              # Environment template
-├── docker-compose.yml        # Docker services configuration
-├── Dockerfile                # Multi-stage Docker build
-├── healthcheck.js            # Docker health check script
-└── package.json              # Dependencies and scripts
+├── docker-compose.yml         # Docker services configuration
+├── Dockerfile                 # Multi-stage Docker build
+├── CLAUDE.md                  # Development guide for Claude Code
+├── DOCKER.md                  # Comprehensive Docker documentation
+└── package.json               # Dependencies and scripts
 ```
 
 ## 🔧 Troubleshooting
 
-### Database Connection Issues
+Having issues? Check [DOCKER.md](./DOCKER.md) for comprehensive troubleshooting covering:
+
+- **New dependencies not installing** (pnpm-cache issue) - Most common!
+- Container restarts and crashes
+- Database connection problems
+- Hot-reload not working
+- Migration errors
+- Port conflicts
+- And more...
+
+### Quick Fixes
 
 ```bash
-# Check if PostgreSQL is running
-docker-compose ps
+# Dependencies not found after install?
+pnpm run docker:dev:clean
 
-# View database logs
+# Environment variables not updating?
+pnpm run docker:restart
+
+# Database connection issues?
+curl http://localhost:3001/ready
 docker-compose logs postgres
-
-# Test database connectivity
-curl http://localhost:3000/ready
-
-# Restart database
-docker-compose restart postgres
 ```
 
-### Port Already in Use
+## 📚 Documentation
+
+- **[DOCKER.md](./DOCKER.md)** - Complete Docker guide with workflows and troubleshooting
+- **[CLAUDE.md](./CLAUDE.md)** - Development guide for Claude Code users
+- **[NestJS Docs](https://docs.nestjs.com)** - Framework documentation
+- **[Prisma Docs](https://www.prisma.io/docs)** - ORM documentation
+
+## 🧪 Testing
+
+This project has comprehensive test coverage:
 
 ```bash
-# Check what's using port 3000
-lsof -i :3000
+# Run all unit tests (117 tests)
+pnpm run test
 
-# Use a different port (edit .env)
-PORT=3001
+# Run e2e tests (22 tests)
+pnpm run test:e2e
 
-# Or stop the conflicting service
-docker-compose down
+# Generate coverage report
+pnpm run test:cov
+
+# Watch mode for development
+pnpm run test:watch
 ```
 
-### Prisma Client Out of Sync
-
-```bash
-# Regenerate Prisma Client
-pnpm run prisma:generate
-
-# Or in Docker
-docker-compose exec app pnpm prisma generate
-```
-
-### Docker Build Issues
-
-```bash
-# Clean rebuild
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-## 📚 Additional Resources
-
-- [NestJS Documentation](https://docs.nestjs.com)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [Docker Documentation](https://docs.docker.com)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+**Test Coverage**:
+- Authentication (JWT + OAuth2)
+- User management
+- Health checks
+- Account linking
+- Security features
 
 ## 📝 License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
