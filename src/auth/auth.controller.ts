@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Get,
   UseGuards,
+  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -14,6 +15,8 @@ import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
+import { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -38,5 +41,29 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   getProfile(@CurrentUser() user: any) {
     return new UserEntity(user);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleOAuthGuard)
+  async googleAuth() {}
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(GoogleOAuthGuard)
+  async googleAuthCallback(@CurrentUser() user: any, @Res() res: Response) {
+    const authResponse = await this.authService.loginWithOAuth(user);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    res.cookie('accessToken', authResponse.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    return res.redirect(`${frontendUrl}/auth/callback`);
   }
 }

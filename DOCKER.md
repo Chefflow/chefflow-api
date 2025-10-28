@@ -420,6 +420,56 @@ docker volume prune
 docker-compose exec app-dev chown -R node:node /app
 ```
 
+### New dependencies not installing (pnpm-cache issue)
+
+**Symptoms:**
+- TypeScript compilation errors for newly added packages (e.g., `Cannot find module 'passport-google-oauth20'`)
+- Dependencies exist in `package.json` but are not available in the container
+- `pnpm install` inside container doesn't resolve the issue
+- Container restart doesn't help
+
+**Root Cause:**
+The `pnpm-cache` volume can become corrupted or retain old state, preventing new dependencies from being properly installed even after running `pnpm install`.
+
+**Solution:**
+Remove the pnpm-cache volume and rebuild the container without cache:
+
+```bash
+# Stop all services
+pnpm run docker:down
+
+# Remove the pnpm-cache volume
+docker volume rm chefflow-api_pnpm-cache
+
+# Rebuild without cache (forces fresh dependency installation)
+docker-compose build --no-cache app-dev
+
+# Start the services
+pnpm run docker:dev
+```
+
+**Verification:**
+```bash
+# Check that all packages were installed successfully
+docker-compose logs app-dev | grep "Packages:"
+# Should show: Packages: +742 (or similar)
+
+# Verify application starts without errors
+docker-compose logs app-dev --tail=30 | grep "successfully started"
+```
+
+**Alternative (if only pnpm-cache is the issue):**
+```bash
+# Remove only pnpm-cache volume and rebuild
+docker volume rm chefflow-api_pnpm-cache
+docker-compose up -d --build app-dev
+```
+
+**Prevention:**
+- After adding new dependencies to `package.json`, always rebuild the container: `docker-compose up -d --build app-dev`
+- If you experience repeated issues, consider removing the pnpm-cache volume periodically during development
+- This issue is specific to the `pnpm-cache` volume and doesn't affect the `postgres_data` volume
+
 ## Best Practices
 
 ### Development

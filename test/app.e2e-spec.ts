@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import helmet from 'helmet';
@@ -41,11 +41,10 @@ describe('AppController (e2e)', () => {
   });
 
   describe('Root endpoint', () => {
-    it('/ (GET) should return Hello World', () => {
+    it('/ (GET) should return 404 (no root endpoint defined)', () => {
       return request(app.getHttpServer())
         .get('/')
-        .expect(200)
-        .expect('Hello World!');
+        .expect(404);
     });
   });
 
