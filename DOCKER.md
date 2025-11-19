@@ -26,12 +26,12 @@ The project uses a **multi-stage Dockerfile** and **docker-compose.yml** with th
 │     - Volume: postgres_data (persistent)    │
 │                                             │
 │  2. app (PRODUCTION - target: production)   │
-│     - Port: 3000                            │
+│     - Port: 4000                            │
 │     - Compiled code (dist/)                 │
 │     - No hot-reload                         │
 │                                             │
 │  3. app-dev (DEVELOPMENT - target: dev)     │
-│     - Port: 3001                            │
+│     - Port: 4000                            │
 │     - Real-time code (volumes)              │
 │     - Hot-reload enabled                    │
 │     - Profile: dev                          │
@@ -88,7 +88,7 @@ Resource limits: 1 CPU, 1GB RAM (max), 256MB (reserved)
 **Production-ready NestJS application**
 
 ```yaml
-Port: 3000
+Port: 4000
 Target: production
 Command: pnpm prisma migrate deploy && node dist/main.js
 Volumes: None (uses compiled code in image)
@@ -106,7 +106,7 @@ Resource limits: 1 CPU, 512MB RAM (max), 256MB (reserved)
 **Development environment with hot-reload**
 
 ```yaml
-Port: 3001
+Port: 4000
 Target: development
 Profile: dev (requires --profile dev to start)
 Command: pnpm prisma migrate dev && pnpm run start:dev
@@ -143,9 +143,9 @@ pnpm run docker:dev:logs
 ```
 
 **Access Points:**
-- API: `http://localhost:3001`
-- Health check: `http://localhost:3001/health`
-- Readiness check: `http://localhost:3001/ready`
+- API: `http://localhost:4000`
+- Health check: `http://localhost:4000/health`
+- Readiness check: `http://localhost:4000/ready`
 
 ### Daily Development Workflow
 
@@ -177,7 +177,7 @@ pnpm run docker:down
 **Commands:**
 
 ```bash
-# Start development environment (port 3001)
+# Start development environment (port 4000)
 pnpm run docker:dev
 
 # View logs in real-time
@@ -283,7 +283,7 @@ pnpm run start:dev
 **Commands:**
 
 ```bash
-# Start production environment (port 3000)
+# Start production environment (port 4000)
 pnpm run docker:up
 
 # View logs
@@ -297,9 +297,9 @@ pnpm run docker:down
 ```
 
 **Access Points:**
-- API: `http://localhost:3000`
-- Health check: `http://localhost:3000/health`
-- Readiness check: `http://localhost:3000/ready`
+- API: `http://localhost:4000`
+- Health check: `http://localhost:4000/health`
+- Readiness check: `http://localhost:4000/ready`
 
 ## Common Commands Reference
 
@@ -333,8 +333,8 @@ docker-compose ps
 docker-compose --profile dev ps  # Include app-dev
 
 # Start services
-pnpm run docker:dev              # Development (port 3001)
-pnpm run docker:up               # Production (port 3000)
+pnpm run docker:dev              # Development (port 4000)
+pnpm run docker:up               # Production (port 4000)
 
 # Stop services
 pnpm run docker:down             # Stop and remove containers
@@ -566,7 +566,7 @@ docker-compose logs postgres
 docker-compose restart postgres
 
 # 5. Test readiness endpoint
-curl http://localhost:3001/ready
+curl http://localhost:4000/ready
 ```
 
 ### Hot-Reload Not Working
@@ -626,15 +626,14 @@ docker-compose exec app-dev pnpm prisma migrate status
 
 ```bash
 # Find what's using the port
-lsof -i :3000
-lsof -i :3001
+lsof -i :4000
 lsof -i :5432
 
 # Kill the process
 kill -9 <PID>
 
 # Or change port in docker-compose.yml
-# Change: "3001:3000" to "3002:3000"
+# Change: "4000:4000" to "4001:4000"
 ```
 
 ### Out of Disk Space
@@ -840,7 +839,7 @@ DATABASE_URL="postgresql://user:pass@postgres:5432/dbname?schema=public"
 
 # Application
 NODE_ENV="development"
-PORT=3000
+PORT=4000
 
 # Security
 JWT_SECRET="your-secret-key"
@@ -849,13 +848,13 @@ JWT_EXPIRES_IN="7d"
 # OAuth
 GOOGLE_CLIENT_ID="your-client-id"
 GOOGLE_CLIENT_SECRET="your-client-secret"
-GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
+GOOGLE_CALLBACK_URL="http://localhost:4000/auth/google/callback"
 
 # Frontend
-FRONTEND_URL="http://localhost:5173"
+FRONTEND_URL="http://localhost:3000"
 
 # CORS
-ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
+ALLOWED_ORIGINS="http://localhost:3000"
 
 # Rate Limiting
 THROTTLE_TTL=60
@@ -872,8 +871,8 @@ THROTTLE_LIMIT=10
 | Service    | Container Port | Host Port | Purpose              |
 |------------|----------------|-----------|----------------------|
 | postgres   | 5432           | 5432      | PostgreSQL database  |
-| app        | 3000           | 3000      | Production API       |
-| app-dev    | 3000           | 3001      | Development API      |
+| app        | 4000           | 4000      | Production API       |
+| app-dev    | 4000           | 4000      | Development API      |
 
 ## Additional Resources
 

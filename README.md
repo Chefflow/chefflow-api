@@ -53,11 +53,11 @@ A production-ready NestJS backend application with JWT and OAuth2 authentication
 
 4. **Verify it's running**:
    ```bash
-   curl http://localhost:3001/health
+   curl http://localhost:4000/health
    # Response: {"status":"ok","timestamp":"..."}
    ```
 
-That's it! The API is now running on **http://localhost:3001** with hot-reload enabled.
+That's it! The API is now running on **http://localhost:4000** with hot-reload enabled.
 
 > 📘 **For detailed Docker workflows, troubleshooting, and best practices, see [DOCKER.md](./DOCKER.md)**
 
@@ -66,7 +66,7 @@ That's it! The API is now running on **http://localhost:3001** with hot-reload e
 ### Docker Development (Recommended)
 
 ```bash
-# Start development with hot-reload (port 3001)
+# Start development with hot-reload (port 4000)
 pnpm run docker:dev
 
 # View logs
@@ -81,13 +81,13 @@ pnpm run docker:down
 ```bash
 # Requires PostgreSQL running separately
 pnpm install
-pnpm run start:dev  # Port 3000
+pnpm run start:dev  # Port 4000
 ```
 
 ### Production Testing
 
 ```bash
-# Test production build locally (port 3000)
+# Test production build locally (port 4000)
 pnpm run docker:up
 ```
 
@@ -210,7 +210,7 @@ pnpm run docker:dev:clean
 pnpm run docker:restart
 
 # Database connection issues?
-curl http://localhost:3001/ready
+curl http://localhost:4000/ready
 docker-compose logs postgres
 ```
 

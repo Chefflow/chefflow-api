@@ -24,7 +24,7 @@ ChefFlow API is a NestJS backend application with Prisma ORM and PostgreSQL. The
 # Install dependencies
 pnpm install
 
-# Run in watch mode (local development on port 3000)
+# Run in watch mode (local development on port 4000)
 pnpm run start:dev
 
 # Build the application
@@ -90,10 +90,10 @@ pnpm run prisma:seed
 ### Docker
 
 ```bash
-# Build and run production stack (port 3000)
+# Build and run production stack (port 4000)
 pnpm run docker:up
 
-# Run development stack with hot-reload (port 3001)
+# Run development stack with hot-reload (port 4000)
 pnpm run docker:dev
 
 # Stop all services
@@ -250,14 +250,14 @@ The application provides two health check endpoints (`src/app.controller.ts`):
 **Multi-stage Dockerfile**:
 - `base`: Node 20 slim + OpenSSL + pnpm setup
 - `dependencies`: Dependency installation with frozen lockfile
-- `development`: Hot-reload enabled (target for local dev on port 3001)
+- `development`: Hot-reload enabled (target for local dev on port 4000)
 - `build`: TypeScript compilation + Prisma generation
-- `production`: Optimized final image with non-root user (port 3000)
+- `production`: Optimized final image with non-root user (port 4000)
 
 **Docker Compose Services**:
 - `postgres`: PostgreSQL 16 with health checks and persistent volume (`postgres_data`)
-- `app`: Production build on port 3000 (auto-runs `prisma migrate deploy` on startup)
-- `app-dev`: Development build on port 3001 with volume mounts (requires `--profile dev`)
+- `app`: Production build on port 4000 (auto-runs `prisma migrate deploy` on startup)
+- `app-dev`: Development build on port 4000 with volume mounts (requires `--profile dev`)
 
 **Important Docker Details**:
 - Uses `service_healthy` condition to ensure database is ready before app starts
@@ -283,7 +283,7 @@ The application provides two health check endpoints (`src/app.controller.ts`):
   - `DATABASE_URL`: PostgreSQL connection string
   - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`: Docker PostgreSQL credentials
   - `NODE_ENV`: Environment mode (`development`, `production`)
-  - `PORT`: Application port (default 3000)
+  - `PORT`: Application port (default 4000)
   - `JWT_SECRET`, `JWT_EXPIRES_IN`: JWT authentication config (7d default)
   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`: Google OAuth credentials
   - `FRONTEND_URL`: Frontend URL for OAuth redirects (default: http://localhost:5173)
@@ -344,7 +344,7 @@ To add a new OAuth provider (e.g., GitHub, Apple):
 
 ### Working with Docker
 
-- Use `app-dev` service for development with hot-reload (port 3001)
+- Use `app-dev` service for development with hot-reload (port 4000)
 - Production migrations run automatically via command override in docker-compose.yml
 - Access Prisma Studio in container: `docker-compose exec app-dev pnpm prisma studio`
 - Direct database access: `docker-compose exec postgres psql -U chefflow_user -d chefflow`
@@ -374,13 +374,13 @@ The project has comprehensive test coverage:
 
 ```bash
 # Test readiness endpoint
-curl http://localhost:3001/ready
+curl http://localhost:4000/ready
 
 # Stop database to test failure handling
 docker-compose stop postgres
 
 # Should return 503
-curl -i http://localhost:3001/ready
+curl -i http://localhost:4000/ready
 
 # Restart database
 docker-compose start postgres

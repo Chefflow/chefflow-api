@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-3000}
+      PORT: ${PORT:-4000}
       DATABASE_URL: postgresql://${POSTGRES_USER:-chefflow_user}:${POSTGRES_PASSWORD:-chefflow_password}@postgres:5432/${POSTGRES_DB:-chefflow}?schema=public
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
@@ -45,7 +45,7 @@ services:
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-10}
     ports:
-      - '3000:3000'
+      - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: development
-      PORT: 3000
+      PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-chefflow_user}:${POSTGRES_PASSWORD:-chefflow_password}@postgres:5432/${POSTGRES_DB:-chefflow}?schema=public
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
@@ -79,7 +79,7 @@ services:
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
     ports:
-      - '3001:3000'
+      - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
