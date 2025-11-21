@@ -22,9 +22,9 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   @MaxLength(100)
-  @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  @Matches(/^[a-fA-F0-9]{64}$/, {
     message:
-      'Password must contain uppercase, lowercase, and number or special character',
+      'Password must be a valid SHA-256 hash (64 hexadecimal characters)',
   })
   password!: string;
 
