@@ -113,7 +113,7 @@ describe('Google OAuth (e2e)', () => {
   describe('OAuth User Creation and Linking', () => {
     it('should create new user from OAuth data when user does not exist', async () => {
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-new-user',
         email: 'oauth-test-new@example.com',
         name: 'OAuth Test New User',
@@ -135,7 +135,7 @@ describe('Google OAuth (e2e)', () => {
         where: { email: oauthUserData.email },
       });
       expect(dbUser).toBeDefined();
-      expect(dbUser.provider).toBe('GOOGLE');
+      expect(dbUser?.provider).toBe('GOOGLE');
     });
 
     it('should return existing user when OAuth provider and providerId match', async () => {
@@ -152,7 +152,7 @@ describe('Google OAuth (e2e)', () => {
       });
 
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-existing',
         email: 'oauth-test-existing@example.com',
         name: 'Existing OAuth User',
@@ -180,7 +180,7 @@ describe('Google OAuth (e2e)', () => {
       });
 
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-link',
         email: 'oauth-test-link@example.com',
         name: 'OAuth User',
@@ -200,8 +200,9 @@ describe('Google OAuth (e2e)', () => {
       const dbUser = await prismaService.user.findUnique({
         where: { email: 'oauth-test-link@example.com' },
       });
-      expect(dbUser.provider).toBe('GOOGLE');
-      expect(dbUser.providerId).toBe('test-provider-id-link');
+      expect(dbUser).toBeDefined();
+      expect(dbUser?.provider).toBe('GOOGLE');
+      expect(dbUser?.providerId).toBe('test-provider-id-link');
     });
 
     it('should generate unique username when base username is taken', async () => {
@@ -217,7 +218,7 @@ describe('Google OAuth (e2e)', () => {
       });
 
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-unique',
         email: 'oauth-test-unique@example.com',
         name: 'OAuth Test Unique',
@@ -234,7 +235,7 @@ describe('Google OAuth (e2e)', () => {
 
     it('should sanitize email with special characters for username', async () => {
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-sanitize',
         email: 'test.user+tag@example.com',
         name: 'Test User',
@@ -250,7 +251,7 @@ describe('Google OAuth (e2e)', () => {
 
     it('should use email prefix as name when name is not provided', async () => {
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-no-name',
         email: 'oauth-test-noname@example.com',
         name: undefined,
@@ -340,20 +341,21 @@ describe('Google OAuth (e2e)', () => {
 
     it('should set OAuth user passwordHash to null', async () => {
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-password-null',
         email: 'oauth-test-password-null@example.com',
         name: 'OAuth Password Null',
         image: undefined,
       };
 
-      const user = await authService.validateOAuthUser(oauthUserData);
+      await authService.validateOAuthUser(oauthUserData);
 
       const dbUser = await prismaService.user.findUnique({
         where: { email: oauthUserData.email },
       });
 
-      expect(dbUser.passwordHash).toBeNull();
+      expect(dbUser).toBeDefined();
+      expect(dbUser?.passwordHash).toBeNull();
     });
 
     it('should not allow OAuth users to login with password', async () => {
