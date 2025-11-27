@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AuthService } from '../src/auth/auth.service';
+import cookieParser from 'cookie-parser';
 
 describe('Google OAuth (e2e)', () => {
   let app: INestApplication;
@@ -18,6 +19,7 @@ describe('Google OAuth (e2e)', () => {
     app = moduleFixture.createNestApplication();
 
     // Apply the same configuration as main.ts
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -71,7 +73,9 @@ describe('Google OAuth (e2e)', () => {
         .expect((res) => {
           const location = res.headers.location as string;
           expect(location).toContain('redirect_uri=');
-          expect(location).toContain(encodeURIComponent('/auth/google/callback'));
+          expect(location).toContain(
+            encodeURIComponent('/auth/google/callback'),
+          );
         });
     });
 
@@ -381,22 +385,28 @@ describe('Google OAuth (e2e)', () => {
 
   describe('OAuth Integration with existing JWT system', () => {
     it('should work alongside LOCAL authentication', async () => {
+      // SHA-256 hash of "Test123!" for testing
+      const testPasswordHash =
+        'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
+
       // Create LOCAL user
       const localUserResponse = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
           username: 'oauth_test_local',
           email: 'oauth-test-local@example.com',
-          password: 'Test123!',
+          password: testPasswordHash,
           name: 'Local User',
         })
         .expect(201);
 
       expect(localUserResponse.body.user.provider).toBe('LOCAL');
+      expect(localUserResponse.body.accessToken).toBeUndefined();
+      expect(localUserResponse.headers['set-cookie']).toBeDefined();
 
       // Create OAuth user with different email
       const oauthUserData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-integration',
         email: 'oauth-test-oauth@example.com',
         name: 'OAuth User',
@@ -412,23 +422,92 @@ describe('Google OAuth (e2e)', () => {
         .post('/auth/login')
         .send({
           username: 'oauth_test_local',
-          password: 'Test123!',
+          password: testPasswordHash,
         })
         .expect(200);
 
+      expect(localLoginResponse.body.accessToken).toBeUndefined();
+      expect(localLoginResponse.headers['set-cookie']).toBeDefined();
+
       const oauthLoginResult = await authService.loginWithOAuth(oauthUser);
+
+      // Extract accessToken from cookie for testing
+      const localCookies = localLoginResponse.headers['set-cookie'];
+      const localAccessToken = Array.isArray(localCookies)
+        ? localCookies[0].split(';')[0].split('=')[1]
+        : localCookies.split(';')[0].split('=')[1];
 
       // Test LOCAL user profile
       await request(app.getHttpServer())
         .get('/auth/profile')
-        .set('Authorization', `Bearer ${localLoginResponse.body.accessToken}`)
+        .set('Cookie', `accessToken=${localAccessToken}`)
         .expect(200);
 
-      // Test OAuth user profile
+      // Test OAuth user profile (still using direct token since it's from authService)
       await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', `Bearer ${oauthLoginResult.accessToken}`)
         .expect(200);
+    });
+
+    it('should set HTTP-only cookie on registration', async () => {
+      // SHA-256 hash of "Test123!" for testing
+      const testPasswordHash =
+        'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          username: 'oauth_test_cookie_register',
+          email: 'oauth-test-cookie-register@example.com',
+          password: testPasswordHash,
+          name: 'Cookie Register User',
+        })
+        .expect(201);
+
+      expect(response.body).not.toHaveProperty('accessToken');
+      expect(response.body).toHaveProperty('user');
+      expect(response.headers['set-cookie']).toBeDefined();
+
+      const setCookieHeader = response.headers['set-cookie'][0];
+      expect(setCookieHeader).toContain('accessToken=');
+      expect(setCookieHeader).toContain('HttpOnly');
+      expect(setCookieHeader).toContain('Path=/');
+    });
+
+    it('should set HTTP-only cookie on login', async () => {
+      // SHA-256 hash of "Test123!" for testing
+      const testPasswordHash =
+        'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
+
+      // First register user
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          username: 'oauth_test_cookie_login',
+          email: 'oauth-test-cookie-login@example.com',
+          password: testPasswordHash,
+          name: 'Cookie Login User',
+        })
+        .expect(201);
+
+      // Then login
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          username: 'oauth_test_cookie_login',
+          password: testPasswordHash,
+        })
+        .expect(200);
+
+      expect(response.body).not.toHaveProperty('accessToken');
+      expect(response.body).toHaveProperty('user');
+      expect(response.headers['set-cookie']).toBeDefined();
+
+      const setCookieHeader = response.headers['set-cookie'][0];
+      expect(setCookieHeader).toContain('accessToken=');
+      expect(setCookieHeader).toContain('HttpOnly');
+      expect(setCookieHeader).toContain('Path=/');
     });
   });
 });

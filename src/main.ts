@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +12,9 @@ async function bootstrap() {
 
   // Security: Helmet for HTTP headers
   app.use(helmet());
+
+  // Cookie parser middleware for HTTP-only cookies
+  app.use(cookieParser());
 
   // Security: CORS configuration
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [

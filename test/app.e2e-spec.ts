@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -18,6 +19,7 @@ describe('AppController (e2e)', () => {
     // Apply same configurations as in main.ts
     app.enableShutdownHooks();
     app.use(helmet());
+    app.use(cookieParser());
     app.enableCors({
       origin: ['http://localhost:3000'],
       credentials: true,

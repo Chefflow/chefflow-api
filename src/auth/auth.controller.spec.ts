@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UserEntity } from '../users/entities/user.entity';
+import { Response } from 'express';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -29,6 +30,14 @@ describe('AuthController', () => {
   const mockAuthService = {
     register: jest.fn(),
     login: jest.fn(),
+  };
+
+  const mockResponse = () => {
+    const res = {} as Response;
+    res.cookie = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
+    res.redirect = jest.fn().mockReturnValue(res);
+    return res;
   };
 
   beforeEach(async () => {
@@ -62,28 +71,43 @@ describe('AuthController', () => {
       name: 'Test User',
     };
 
-    it('should register a new user and return auth response', async () => {
+    it('should register a new user and set HTTP-only cookie', async () => {
       mockAuthService.register.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
 
-      const result = await controller.register(registerDto);
+      await controller.register(registerDto, res);
 
-      expect(result).toEqual(mockAuthResponse);
       expect(authService.register).toHaveBeenCalledWith(registerDto);
       expect(authService.register).toHaveBeenCalledTimes(1);
+      expect(res.cookie).toHaveBeenCalledWith(
+        'accessToken',
+        'mock-jwt-token',
+        expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: '/',
+        }),
+      );
+      expect(res.json).toHaveBeenCalledWith({ user: mockUser });
     });
 
     it('should handle registration errors', async () => {
       const error = new Error('Username already exists');
       mockAuthService.register.mockRejectedValue(error);
+      const res = mockResponse();
 
-      await expect(controller.register(registerDto)).rejects.toThrow(error);
+      await expect(controller.register(registerDto, res)).rejects.toThrow(
+        error,
+      );
       expect(authService.register).toHaveBeenCalledWith(registerDto);
     });
 
     it('should pass all registration data to service', async () => {
       mockAuthService.register.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
 
-      await controller.register(registerDto);
+      await controller.register(registerDto, res);
 
       expect(authService.register).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -94,6 +118,18 @@ describe('AuthController', () => {
         }),
       );
     });
+
+    it('should return only user data without accessToken in response body', async () => {
+      mockAuthService.register.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
+
+      await controller.register(registerDto, res);
+
+      expect(res.json).toHaveBeenCalledWith({ user: mockUser });
+      expect(res.json).not.toHaveBeenCalledWith(
+        expect.objectContaining({ accessToken: expect.anything() }),
+      );
+    });
   });
 
   describe('login', () => {
@@ -102,41 +138,73 @@ describe('AuthController', () => {
       password: 'Test1234!',
     };
 
-    it('should login user and return auth response', async () => {
+    it('should login user and set HTTP-only cookie', async () => {
       mockAuthService.login.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
 
-      const result = await controller.login(loginDto);
+      await controller.login(loginDto, res);
 
-      expect(result).toEqual(mockAuthResponse);
       expect(authService.login).toHaveBeenCalledWith(loginDto);
       expect(authService.login).toHaveBeenCalledTimes(1);
+      expect(res.cookie).toHaveBeenCalledWith(
+        'accessToken',
+        'mock-jwt-token',
+        expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: '/',
+        }),
+      );
+      expect(res.json).toHaveBeenCalledWith({ user: mockUser });
     });
 
     it('should handle login errors', async () => {
       const error = new Error('Invalid credentials');
       mockAuthService.login.mockRejectedValue(error);
+      const res = mockResponse();
 
-      await expect(controller.login(loginDto)).rejects.toThrow(error);
+      await expect(controller.login(loginDto, res)).rejects.toThrow(error);
       expect(authService.login).toHaveBeenCalledWith(loginDto);
     });
 
-    it('should return JWT token on successful login', async () => {
+    it('should set accessToken in HTTP-only cookie on successful login', async () => {
       mockAuthService.login.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
 
-      const result = await controller.login(loginDto);
+      await controller.login(loginDto, res);
 
-      expect(result).toHaveProperty('accessToken');
-      expect(result.accessToken).toBe('mock-jwt-token');
+      expect(res.cookie).toHaveBeenCalledWith(
+        'accessToken',
+        'mock-jwt-token',
+        expect.anything(),
+      );
     });
 
     it('should return user data on successful login', async () => {
       mockAuthService.login.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
 
-      const result = await controller.login(loginDto);
+      await controller.login(loginDto, res);
 
-      expect(result).toHaveProperty('user');
-      expect(result.user).toHaveProperty('username', 'testuser');
-      expect(result.user).toHaveProperty('email', 'test@example.com');
+      expect(res.json).toHaveBeenCalledWith({
+        user: expect.objectContaining({
+          username: 'testuser',
+          email: 'test@example.com',
+        }),
+      });
+    });
+
+    it('should return only user data without accessToken in response body', async () => {
+      mockAuthService.login.mockResolvedValue(mockAuthResponse);
+      const res = mockResponse();
+
+      await controller.login(loginDto, res);
+
+      expect(res.json).toHaveBeenCalledWith({ user: mockUser });
+      expect(res.json).not.toHaveBeenCalledWith(
+        expect.objectContaining({ accessToken: expect.anything() }),
+      );
     });
   });
 

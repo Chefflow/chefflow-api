@@ -22,18 +22,32 @@ import { Response } from 'express';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private setAuthCookie(res: Response, accessToken: string) {
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/',
+    });
+  }
+
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
+    const authResponse = await this.authService.register(registerDto);
+    this.setAuthCookie(res, authResponse.accessToken);
+    return res.json({ user: authResponse.user });
   }
 
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Res() res: Response) {
+    const authResponse = await this.authService.login(loginDto);
+    this.setAuthCookie(res, authResponse.accessToken);
+    return res.json({ user: authResponse.user });
   }
 
   @Get('profile')
@@ -53,16 +67,9 @@ export class AuthController {
   @UseGuards(GoogleOAuthGuard)
   async googleAuthCallback(@CurrentUser() user: any, @Res() res: Response) {
     const authResponse = await this.authService.loginWithOAuth(user);
-
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-    res.cookie('accessToken', authResponse.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
+    this.setAuthCookie(res, authResponse.accessToken);
 
     return res.redirect(`${frontendUrl}/auth/callback`);
   }
