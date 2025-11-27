@@ -3,6 +3,7 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,6 +16,12 @@ async function bootstrap() {
 
   // Cookie parser middleware for HTTP-only cookies
   app.use(cookieParser());
+
+  // Security: CSRF Protection
+  // We manually instantiate the middleware because it's a simple class
+  // If it had dependencies, we would need to resolve it from the app context
+  const csrfMiddleware = new CsrfMiddleware();
+  app.use(csrfMiddleware.use);
 
   // Security: CORS configuration
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
