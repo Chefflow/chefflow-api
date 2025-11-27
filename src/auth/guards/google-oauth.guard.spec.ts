@@ -31,7 +31,6 @@ describe('GoogleOAuthGuard', () => {
         }),
       } as unknown as ExecutionContext;
 
-      // Mock the parent's canActivate method
       const canActivateSpy = jest
         .spyOn(guard, 'canActivate')
         .mockResolvedValue(true);

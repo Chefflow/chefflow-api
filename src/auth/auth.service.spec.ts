@@ -180,8 +180,8 @@ describe('AuthService', () => {
 
       mockPrismaService.user.findFirst.mockResolvedValue(null);
       mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // Email check
-        .mockResolvedValueOnce(null); // Username availability check
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
       mockPrismaService.user.create.mockResolvedValue(newUser);
 
       const result = await service.validateOAuthUser(oauthData);
@@ -215,9 +215,9 @@ describe('AuthService', () => {
 
       mockPrismaService.user.findFirst.mockResolvedValue(null);
       mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // Email check
-        .mockResolvedValueOnce({ username: 'test' }) // First username taken
-        .mockResolvedValueOnce(null); // Second username available
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ username: 'test' })
+        .mockResolvedValueOnce(null);
       mockPrismaService.user.create.mockResolvedValue(newUser);
 
       const result = await service.validateOAuthUser(oauthData);
@@ -259,8 +259,8 @@ describe('AuthService', () => {
 
       mockPrismaService.user.findFirst.mockResolvedValue(null);
       mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // Email check
-        .mockResolvedValueOnce(null); // Username check
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
       mockPrismaService.user.create.mockResolvedValue(newUser);
 
       const result = await service.validateOAuthUser(oauthDataComplexEmail);
@@ -345,10 +345,10 @@ describe('AuthService', () => {
 
       mockPrismaService.user.findFirst.mockResolvedValue(null);
       mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // Email check
-        .mockResolvedValueOnce({ username: 'verylongemailaddress' }) // Base taken
-        .mockResolvedValueOnce({ username: 'verylongemailaddress1' }) // +1 taken
-        .mockResolvedValueOnce(null); // +2 available
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ username: 'verylongemailaddress' })
+        .mockResolvedValueOnce({ username: 'verylongemailaddress1' })
+        .mockResolvedValueOnce(null);
       mockPrismaService.user.create.mockResolvedValue(newUser);
 
       const result = await service.validateOAuthUser(oauthDataLongEmail);
@@ -404,7 +404,6 @@ describe('AuthService', () => {
 
       const result = await service.loginWithOAuth(user);
 
-      // UserEntity is used, which will exclude passwordHash when serialized
       expect(result.user.constructor.name).toBe('UserEntity');
       expect(result.user).toHaveProperty('username', 'oauth_user');
       expect(result.user).toHaveProperty('email', 'oauth@example.com');

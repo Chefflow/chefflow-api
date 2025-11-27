@@ -94,7 +94,6 @@ describe('JwtAuthGuard', () => {
     it('should call super.canActivate for non-public routes', () => {
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
-      // Mock super.canActivate to avoid passport strategy error
       const superSpy = jest
         .spyOn(Object.getPrototypeOf(JwtAuthGuard.prototype), 'canActivate')
         .mockReturnValue(true);
@@ -107,12 +106,10 @@ describe('JwtAuthGuard', () => {
     });
 
     it('should handle different public metadata values', () => {
-      // Test with true
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
       let result = guard.canActivate(mockExecutionContext);
       expect(result).toBe(true);
 
-      // Test with false (should try to call super.canActivate)
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
       const superSpy = jest
         .spyOn(Object.getPrototypeOf(JwtAuthGuard.prototype), 'canActivate')

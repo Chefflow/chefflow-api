@@ -40,13 +40,11 @@ describe('CurrentUser Decorator', () => {
   });
 
   it('should extract user from request', () => {
-    // Get the factory function from the decorator
     const decoratorFactory = CurrentUser();
     const factory = decoratorFactory.KEY
       ? (decoratorFactory as any).factory
       : decoratorFactory;
 
-    // Manually execute the decorator logic
     const result = mockExecutionContext.switchToHttp().getRequest().user;
 
     expect(result).toEqual(mockUser);

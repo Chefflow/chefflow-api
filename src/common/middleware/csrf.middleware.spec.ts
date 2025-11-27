@@ -42,7 +42,6 @@ describe('CsrfMiddleware', () => {
   it('should handle undefined cookies gracefully', () => {
     req.cookies = undefined;
     middleware.use(req as Request, res as Response, next);
-    // Should set a new cookie because none exists
     expect(res.cookie).toHaveBeenCalledWith(
       'XSRF-TOKEN',
       expect.any(String),

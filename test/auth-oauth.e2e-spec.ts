@@ -18,7 +18,6 @@ describe('Google OAuth (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
-    // Apply the same configuration as main.ts
     app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -40,7 +39,6 @@ describe('Google OAuth (e2e)', () => {
   });
 
   afterEach(async () => {
-    // Clean up test users after each test
     await prismaService.user.deleteMany({
       where: {
         OR: [
@@ -120,7 +118,6 @@ describe('Google OAuth (e2e)', () => {
         image: 'https://example.com/photo.jpg',
       };
 
-      // Directly test the AuthService's validateOAuthUser method
       const user = await authService.validateOAuthUser(oauthUserData);
 
       expect(user).toBeDefined();
@@ -130,7 +127,6 @@ describe('Google OAuth (e2e)', () => {
       expect(user.username).toMatch(/^oauth_test_new/);
       expect(user.passwordHash).toBeNull();
 
-      // Verify user was actually created in database
       const dbUser = await prismaService.user.findUnique({
         where: { email: oauthUserData.email },
       });
@@ -139,7 +135,6 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should return existing user when OAuth provider and providerId match', async () => {
-      // Create a user first
       const createdUser = await prismaService.user.create({
         data: {
           username: 'oauth_test_existing',
@@ -168,7 +163,6 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should link OAuth account to existing LOCAL user by email', async () => {
-      // Create a LOCAL user first
       const localUser = await prismaService.user.create({
         data: {
           username: 'local_user_to_link',
@@ -196,7 +190,6 @@ describe('Google OAuth (e2e)', () => {
       expect(user.providerId).toBe('test-provider-id-link');
       expect(user.image).toBe('https://example.com/photo.jpg');
 
-      // Verify in database
       const dbUser = await prismaService.user.findUnique({
         where: { email: 'oauth-test-link@example.com' },
       });
@@ -206,7 +199,6 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should generate unique username when base username is taken', async () => {
-      // Create a user with the base username
       await prismaService.user.create({
         data: {
           username: 'oauth_test_unique',
@@ -287,7 +279,6 @@ describe('Google OAuth (e2e)', () => {
       expect(result).toHaveProperty('user');
       expect(result.user.username).toBe('oauth_test_login');
       expect(result.user.email).toBe('oauth-test-login@example.com');
-      // passwordHash exists but is null for OAuth users (excluded on serialization)
       expect(result.user.passwordHash).toBeNull();
     });
 
@@ -305,7 +296,6 @@ describe('Google OAuth (e2e)', () => {
 
       const { accessToken } = await authService.loginWithOAuth(oauthUser);
 
-      // Test protected endpoint with OAuth-generated JWT
       return request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', `Bearer ${accessToken}`)
@@ -314,7 +304,6 @@ describe('Google OAuth (e2e)', () => {
           expect(res.body.username).toBe('oauth_test_protected');
           expect(res.body.email).toBe('oauth-test-protected@example.com');
           expect(res.body.provider).toBe('GOOGLE');
-          // passwordHash is null for OAuth users (excluded in serialization)
           expect(res.body.passwordHash).toBeNull();
         });
     });
@@ -335,7 +324,6 @@ describe('Google OAuth (e2e)', () => {
 
       const result = await authService.loginWithOAuth(oauthUser);
 
-      // passwordHash exists in UserEntity but will be excluded when serialized
       expect(result.user.passwordHash).toBeNull();
     });
 
@@ -359,7 +347,6 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should not allow OAuth users to login with password', async () => {
-      // Create OAuth user
       await prismaService.user.create({
         data: {
           username: 'oauth_test_no_password',
@@ -371,7 +358,6 @@ describe('Google OAuth (e2e)', () => {
         },
       });
 
-      // Try to login with password (should fail)
       return request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -387,11 +373,9 @@ describe('Google OAuth (e2e)', () => {
 
   describe('OAuth Integration with existing JWT system', () => {
     it('should work alongside LOCAL authentication', async () => {
-      // SHA-256 hash of "Test123!" for testing
       const testPasswordHash =
         'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
 
-      // Create LOCAL user
       const localUserResponse = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
@@ -406,7 +390,6 @@ describe('Google OAuth (e2e)', () => {
       expect(localUserResponse.body.accessToken).toBeUndefined();
       expect(localUserResponse.headers['set-cookie']).toBeDefined();
 
-      // Create OAuth user with different email
       const oauthUserData = {
         provider: 'GOOGLE' as const,
         providerId: 'test-provider-id-integration',
@@ -419,7 +402,6 @@ describe('Google OAuth (e2e)', () => {
 
       expect(oauthUser.provider).toBe('GOOGLE');
 
-      // Both users should be able to access their profiles
       const localLoginResponse = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -433,19 +415,16 @@ describe('Google OAuth (e2e)', () => {
 
       const oauthLoginResult = await authService.loginWithOAuth(oauthUser);
 
-      // Extract accessToken from cookie for testing
       const localCookies = localLoginResponse.headers['set-cookie'];
       const localAccessToken = Array.isArray(localCookies)
         ? localCookies[0].split(';')[0].split('=')[1]
         : localCookies.split(';')[0].split('=')[1];
 
-      // Test LOCAL user profile
       await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Cookie', `accessToken=${localAccessToken}`)
         .expect(200);
 
-      // Test OAuth user profile (still using direct token since it's from authService)
       await request(app.getHttpServer())
         .get('/auth/profile')
         .set('Authorization', `Bearer ${oauthLoginResult.accessToken}`)
@@ -453,7 +432,6 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should set HTTP-only cookie on registration', async () => {
-      // SHA-256 hash of "Test123!" for testing
       const testPasswordHash =
         'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
 
@@ -478,11 +456,9 @@ describe('Google OAuth (e2e)', () => {
     });
 
     it('should set HTTP-only cookie on login', async () => {
-      // SHA-256 hash of "Test123!" for testing
       const testPasswordHash =
         'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
 
-      // First register user
       await request(app.getHttpServer())
         .post('/auth/register')
         .send({
@@ -493,7 +469,6 @@ describe('Google OAuth (e2e)', () => {
         })
         .expect(201);
 
-      // Then login
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({

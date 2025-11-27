@@ -16,7 +16,6 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
-    // Apply same configurations as in main.ts
     app.enableShutdownHooks();
     app.use(helmet());
     app.use(cookieParser());

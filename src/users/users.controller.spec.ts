@@ -186,7 +186,6 @@ describe('UsersController', () => {
       try {
         await controller.update('anotheruser', updateUserDto, mockUser);
       } catch (error) {
-        // Expected to throw
       }
 
       expect(updateSpy).not.toHaveBeenCalled();
@@ -232,7 +231,6 @@ describe('UsersController', () => {
       try {
         await controller.remove('anotheruser', mockUser);
       } catch (error) {
-        // Expected to throw
       }
 
       expect(deleteSpy).not.toHaveBeenCalled();

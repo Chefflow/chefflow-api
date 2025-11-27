@@ -15,8 +15,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     }),
     ThrottlerModule.forRoot([
       {
-        ttl: parseInt(process.env.THROTTLE_TTL ?? '0') || 60000, // Time window in milliseconds
-        limit: parseInt(process.env.THROTTLE_LIMIT ?? '0') || 10, // Max requests per TTL
+        ttl: parseInt(process.env.THROTTLE_TTL ?? '0') || 60000,
+        limit: parseInt(process.env.THROTTLE_LIMIT ?? '0') || 10,
       },
     ]),
     PrismaModule,
