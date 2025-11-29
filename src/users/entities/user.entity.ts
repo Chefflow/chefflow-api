@@ -11,6 +11,9 @@ export class UserEntity {
   @Exclude()
   passwordHash?: string | null;
 
+  @Exclude()
+  hashedRefreshToken?: string | null;
+
   name?: string | null;
   image?: string | null;
   provider!: AuthProvider;

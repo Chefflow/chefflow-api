@@ -3,7 +3,9 @@ import {
   UnauthorizedException,
   ConflictException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
@@ -17,6 +19,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -48,7 +51,9 @@ export class AuthService {
         },
       });
 
-      return this.generateAuthResponse(user);
+      const tokens = await this.getTokens(user.username, user.username);
+      await this.updateRefreshToken(user.username, tokens.refreshToken);
+      return { ...tokens, user: new UserEntity(user) };
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -75,7 +80,9 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      return this.generateAuthResponse(user);
+      const tokens = await this.getTokens(user.username, user.username);
+      await this.updateRefreshToken(user.username, tokens.refreshToken);
+      return { ...tokens, user: new UserEntity(user) };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -88,17 +95,70 @@ export class AuthService {
     return this.prisma.user.findUnique({ where: { username } });
   }
 
-  private async generateAuthResponse(user: any) {
-    const payload = {
-      username: user.username,
-      sub: user.username,
-    };
+  async logout(username: string) {
+    return this.prisma.user.update({
+      where: { username },
+      data: { hashedRefreshToken: null },
+    });
+  }
 
-    const accessToken = this.jwtService.sign(payload);
+  async refreshTokens(username: string, refreshToken: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (!user || !user.hashedRefreshToken)
+      throw new ForbiddenException('Access Denied');
+
+    const refreshTokenMatches = await bcrypt.compare(
+      refreshToken,
+      user.hashedRefreshToken,
+    );
+
+    if (!refreshTokenMatches) throw new ForbiddenException('Access Denied');
+
+    const tokens = await this.getTokens(user.username, user.username);
+    await this.updateRefreshToken(user.username, tokens.refreshToken);
+    return tokens;
+  }
+
+  async updateRefreshToken(username: string, refreshToken: string) {
+    const hash = await bcrypt.hash(refreshToken, 10);
+    await this.prisma.user.update({
+      where: { username },
+      data: {
+        hashedRefreshToken: hash,
+      },
+    });
+  }
+
+  async getTokens(userId: string, username: string) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          username,
+        },
+        {
+          secret: this.configService.get<string>('JWT_SECRET'),
+          expiresIn: '15m',
+        },
+      ),
+      this.jwtService.signAsync(
+        {
+          sub: userId,
+          username,
+        },
+        {
+          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+          expiresIn: '7d',
+        },
+      ),
+    ]);
 
     return {
       accessToken,
-      user: new UserEntity(user),
+      refreshToken,
     };
   }
 
@@ -162,14 +222,8 @@ export class AuthService {
   }
 
   async loginWithOAuth(user: any) {
-    const payload = {
-      username: user.username,
-      sub: user.username,
-    };
-
-    return {
-      accessToken: this.jwtService.sign(payload),
-      user: new UserEntity(user),
-    };
+    const tokens = await this.getTokens(user.username, user.username);
+    await this.updateRefreshToken(user.username, tokens.refreshToken);
+    return { ...tokens, user: new UserEntity(user) };
   }
 }

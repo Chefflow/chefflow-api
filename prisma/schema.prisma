@@ -11,7 +11,8 @@ datasource db {
 model User {
   username      String        @id
   email         String        @unique
-  passwordHash  String?
+  passwordHash      String?
+  hashedRefreshToken String?
   name          String?
   image         String?
   provider      AuthProvider  @default(LOCAL)
