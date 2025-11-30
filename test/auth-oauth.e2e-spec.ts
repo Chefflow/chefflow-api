@@ -69,7 +69,7 @@ describe('Google OAuth (e2e)', () => {
         .get('/auth/google')
         .expect(302)
         .expect((res) => {
-          const location = res.headers.location as string;
+          const location = res.headers.location;
           expect(location).toContain('redirect_uri=');
           expect(location).toContain(
             encodeURIComponent('/auth/google/callback'),
@@ -82,7 +82,7 @@ describe('Google OAuth (e2e)', () => {
         .get('/auth/google')
         .expect(302)
         .expect((res) => {
-          const location = res.headers.location as string;
+          const location = res.headers.location;
           expect(location).toContain('client_id=');
         });
     });

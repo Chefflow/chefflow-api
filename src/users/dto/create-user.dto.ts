@@ -14,7 +14,8 @@ export class CreateUserDto {
   @MinLength(3)
   @MaxLength(30)
   @Matches(/^[a-zA-Z0-9_-]+$/, {
-    message: 'Username can only contain letters, numbers, hyphens and underscores',
+    message:
+      'Username can only contain letters, numbers, hyphens and underscores',
   })
   username!: string;
 

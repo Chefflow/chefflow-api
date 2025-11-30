@@ -185,8 +185,7 @@ describe('UsersController', () => {
 
       try {
         await controller.update('anotheruser', updateUserDto, mockUser);
-      } catch (error) {
-      }
+      } catch (error) {}
 
       expect(updateSpy).not.toHaveBeenCalled();
     });
@@ -216,13 +215,13 @@ describe('UsersController', () => {
     });
 
     it('should throw ForbiddenException when user tries to delete another account', async () => {
-      await expect(
-        controller.remove('anotheruser', mockUser),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(controller.remove('anotheruser', mockUser)).rejects.toThrow(
+        ForbiddenException,
+      );
 
-      await expect(
-        controller.remove('anotheruser', mockUser),
-      ).rejects.toThrow('You can only delete your own account');
+      await expect(controller.remove('anotheruser', mockUser)).rejects.toThrow(
+        'You can only delete your own account',
+      );
     });
 
     it('should not call service when deleting another user account', async () => {
@@ -230,8 +229,7 @@ describe('UsersController', () => {
 
       try {
         await controller.remove('anotheruser', mockUser);
-      } catch (error) {
-      }
+      } catch (error) {}
 
       expect(deleteSpy).not.toHaveBeenCalled();
     });

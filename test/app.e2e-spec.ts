@@ -43,9 +43,7 @@ describe('AppController (e2e)', () => {
 
   describe('Root endpoint', () => {
     it('/ (GET) should return 404 (no root endpoint defined)', () => {
-      return request(app.getHttpServer())
-        .get('/')
-        .expect(404);
+      return request(app.getHttpServer()).get('/').expect(404);
     });
   });
 
