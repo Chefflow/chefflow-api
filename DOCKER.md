@@ -40,28 +40,28 @@ The project uses a **multi-stage Dockerfile** and **docker-compose.yml** with th
 
 ## Dockerfile Multi-Stage Build
 
-The Dockerfile consists of 4 stages optimized for different purposes:
+The Dockerfile consists of 3 stages optimized for different purposes:
 
-### Stage 1: `base`
+### Stage 1: `development`
 - Base image: `node:20-slim`
 - Installs OpenSSL (required by Prisma)
 - Installs pnpm 10.16.1
-- Copies `package.json` and `pnpm-lock.yaml`
-
-### Stage 2: `dependencies`
 - Installs all dependencies with `pnpm install --frozen-lockfile`
-- Used as base for both development and build stages
-
-### Stage 3: `development`
-- Inherits from `dependencies`
 - Copies all source code
-- Generates Prisma Client
+- Generates Prisma Client (uses `prisma.config.ts` with fallback URL)
 - Used by `app-dev` service for local development
 
-### Stage 4: `production`
+### Stage 2: `build`
+- Compiles TypeScript code
+- Generates Prisma Client
+- Builds production bundle
+- Intermediate stage for production image
+
+### Stage 3: `production`
 - Fresh image (optimized)
 - Production dependencies only
 - Compiled code (`dist/`)
+- Includes `prisma.config.ts` for Prisma 7
 - Non-root user for security
 - Used by `app` service for production deployments
 
@@ -109,7 +109,7 @@ Resource limits: 1 CPU, 512MB RAM (max), 256MB (reserved)
 Port: 4000
 Target: development
 Profile: dev (requires --profile dev to start)
-Command: pnpm prisma migrate dev && pnpm run start:dev
+Command: pnpm run start:dev
 Resource limits: 1 CPU, 1GB RAM (max), 512MB (reserved)
 ```
 
@@ -120,7 +120,7 @@ Resource limits: 1 CPU, 1GB RAM (max), 512MB (reserved)
 
 **Key Features:**
 - Hot-reload enabled (changes reflect immediately)
-- Interactive Prisma migrations
+- Prisma 7 configuration via `prisma.config.ts`
 - Higher rate limits for development
 - CORS set to `*` by default
 
@@ -226,15 +226,17 @@ pnpm run docker:dev:clean
 **Example workflow:**
 
 ```bash
-# 1. Install new package
+# 1. Install new package locally
 pnpm add @nestjs/swagger
 
-# 2. Rebuild container
+# 2. Rebuild container to install in Docker
 pnpm run docker:dev:rebuild
 
 # 3. Verify it worked
 pnpm run docker:dev:logs
 ```
+
+**Note:** With Prisma 7, the client is automatically generated during the Docker build using `prisma.config.ts` configuration.
 
 ### Workflow 3: Local Development (Without Docker)
 
@@ -254,7 +256,8 @@ docker-compose up -d postgres
 # 2. Update DATABASE_URL in .env to use localhost
 # DATABASE_URL="postgresql://chefflow_user:chefflow_password@localhost:5432/chefflow?schema=public"
 
-# 3. Run migrations
+# 3. Generate Prisma Client and run migrations
+pnpm run prisma:generate
 pnpm run prisma:migrate
 
 # 4. Start development server
@@ -374,8 +377,9 @@ docker-compose exec app sh
 docker-compose exec app-dev pnpm run test
 docker-compose exec app-dev pnpm run test:e2e
 
-# Run Prisma commands
-docker-compose exec app-dev pnpm prisma studio
+# Run Prisma commands (Prisma 7)
+docker-compose exec app-dev pnpm prisma generate      # Regenerate Prisma Client
+docker-compose exec app-dev pnpm prisma studio        # Open Prisma Studio GUI
 docker-compose exec app-dev pnpm prisma migrate dev --name add_field
 docker-compose exec app pnpm prisma migrate deploy
 
@@ -683,17 +687,21 @@ pnpm run docker:dev:rebuild
 **Symptoms:**
 - After `git pull`, TypeScript errors appear
 - Types seem out of sync
+- Prisma Client types missing
 
 **Solutions:**
 
 ```bash
-# 1. Regenerate Prisma Client
+# 1. Regenerate Prisma Client (Prisma 7)
 docker-compose exec app-dev pnpm prisma generate
 
-# 2. Rebuild container
+# 2. Restart to pick up new types
+pnpm run docker:restart
+
+# 3. If still failing, rebuild container
 pnpm run docker:dev:rebuild
 
-# 3. If still failing, full clean
+# 4. If still failing, full clean
 pnpm run docker:dev:clean
 ```
 

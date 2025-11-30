@@ -12,7 +12,7 @@ ChefFlow API is a NestJS backend application with Prisma ORM and PostgreSQL. The
 - **Runtime**: Node.js 20+
 - **Package Manager**: pnpm 10+ (pinned to 10.16.1)
 - **Database**: PostgreSQL 16
-- **ORM**: Prisma 6.16.1
+- **ORM**: Prisma 7.0.1
 - **Language**: TypeScript 5.7+
 - **Authentication**: JWT + Passport.js (JWT Strategy, Google OAuth Strategy)
 
@@ -152,20 +152,28 @@ src/
 
 ### Database Layer (Prisma)
 
+- **Prisma 7 Configuration**:
+  - Uses `prisma.config.ts` at project root for datasource configuration
+  - Schema file (`prisma/schema.prisma`) no longer contains `url` in datasource block
+  - Database URL configured via `process.env.DATABASE_URL` in `prisma.config.ts`
+  - Fallback URL provided for build-time Prisma Client generation
+
 - **PrismaService** (`src/prisma/prisma.service.ts`): Singleton service that extends PrismaClient
+  - Uses PrismaPg adapter with `pg` Pool (Prisma 7 requirement)
   - Implements `OnModuleInit` to connect on app startup
   - Implements `OnModuleDestroy` to gracefully disconnect on shutdown
   - Registered as global provider in `AppModule`
   - Inject into any service/controller that needs database access
 
 - **Schema Location**: `prisma/schema.prisma`
+  - Generator uses `prisma-client-js` (default output location)
   - Single `User` model with hybrid authentication support
   - Uses `username` as primary key (unique identifier)
   - Supports multiple auth providers: LOCAL, GOOGLE, APPLE, GITHUB
   - Index on `[provider, providerId]` for OAuth user lookups
   - Index on `createdAt` for sorting queries
   - `passwordHash` is nullable (null for OAuth users)
-  - Uses PostgreSQL as datasource
+  - Uses PostgreSQL as datasource (no URL in schema with Prisma 7)
 
 ### Authentication System
 
@@ -247,12 +255,10 @@ The application provides two health check endpoints (`src/app.controller.ts`):
 
 ### Docker Architecture
 
-**Multi-stage Dockerfile**:
-- `base`: Node 20 slim + OpenSSL + pnpm setup
-- `dependencies`: Dependency installation with frozen lockfile
-- `development`: Hot-reload enabled (target for local dev on port 4000)
-- `build`: TypeScript compilation + Prisma generation
-- `production`: Optimized final image with non-root user (port 4000)
+**Multi-stage Dockerfile** (simplified with Prisma 7):
+- `development`: Node 20 slim + OpenSSL + pnpm + dependencies + Prisma Client generation (target for local dev on port 4000)
+- `build`: TypeScript compilation + Prisma Client generation (intermediate stage)
+- `production`: Optimized final image with non-root user + `prisma.config.ts` (port 4000)
 
 **Docker Compose Services**:
 - `postgres`: PostgreSQL 16 with health checks and persistent volume (`postgres_data`)
@@ -266,6 +272,7 @@ The application provides two health check endpoints (`src/app.controller.ts`):
 - Database connection uses service name `postgres:5432` not `localhost`
 - Development uses volume mounts for hot-reload: `.:/app` with excluded `node_modules`
 - pnpm cache persisted in named volume: `pnpm-cache`
+- Prisma Client generated during build using `prisma.config.ts` with fallback URL
 
 **Docker Troubleshooting**:
 - **New dependencies not installing**: Remove pnpm-cache volume and rebuild:

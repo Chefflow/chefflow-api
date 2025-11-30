@@ -6,9 +6,9 @@ A production-ready NestJS backend application with JWT and OAuth2 authentication
 
 - **Framework**: NestJS 11.x
 - **Runtime**: Node.js 20+
-- **Package Manager**: pnpm 10.19.0
+- **Package Manager**: pnpm 10.16.1
 - **Database**: PostgreSQL 16
-- **ORM**: Prisma 6.16.1
+- **ORM**: Prisma 7.0.1
 - **Language**: TypeScript 5.7+
 - **Authentication**: JWT + Google OAuth2
 - **Containerization**: Docker & Docker Compose
@@ -173,6 +173,7 @@ chefflow-api/
 ├── prisma/
 │   ├── schema.prisma          # Database schema
 │   └── migrations/            # Migration history
+├── prisma.config.ts           # Prisma 7 configuration
 ├── src/
 │   ├── auth/                  # Authentication module (JWT + OAuth)
 │   ├── users/                 # User management module
