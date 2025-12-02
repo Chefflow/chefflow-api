@@ -18,7 +18,7 @@ export class UsersService {
       return await this.prisma.user.create({
         data: createUserDto,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[];
@@ -33,7 +33,7 @@ export class UsersService {
   async findAll() {
     try {
       return await this.prisma.user.findMany();
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new InternalServerErrorException('Failed to fetch users');
     }
   }
@@ -82,7 +82,7 @@ export class UsersService {
   async delete(username: string): Promise<void> {
     try {
       await this.prisma.user.delete({ where: { username } });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
           throw new NotFoundException('User not found');

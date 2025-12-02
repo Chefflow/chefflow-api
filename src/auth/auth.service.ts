@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
-import { AuthProvider } from '@prisma/client';
+import { AuthProvider, User } from '@prisma/client';
 import { UserEntity } from '../users/entities/user.entity';
 import { OAuthUserData } from './dto/oauth-user.dto';
 @Injectable()
@@ -221,7 +221,7 @@ export class AuthService {
     return user;
   }
 
-  async loginWithOAuth(user: any) {
+  async loginWithOAuth(user: User) {
     const tokens = await this.getTokens(user.username, user.username);
     await this.updateRefreshToken(user.username, tokens.refreshToken);
     return { ...tokens, user: new UserEntity(user) };

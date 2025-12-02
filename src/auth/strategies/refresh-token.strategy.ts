@@ -4,6 +4,13 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
+interface RefreshTokenPayload {
+  sub: string;
+  username: string;
+  iat?: number;
+  exp?: number;
+}
+
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(
   Strategy,
@@ -26,7 +33,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
     return null;
   }
 
-  validate(req: Request, payload: any) {
+  validate(req: Request, payload: RefreshTokenPayload) {
     const refreshToken = req.cookies.Refresh;
     if (!refreshToken) throw new ForbiddenException('Refresh token malformed');
 

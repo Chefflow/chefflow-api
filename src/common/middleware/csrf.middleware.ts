@@ -2,9 +2,13 @@ import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
 
+interface RequestWithCsrfToken extends Request {
+  csrfToken?: string;
+}
+
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: RequestWithCsrfToken, res: Response, next: NextFunction) {
     const csrfCookieName = 'XSRF-TOKEN';
     const csrfHeaderName = 'X-XSRF-TOKEN';
 
@@ -16,6 +20,9 @@ export class CsrfMiddleware implements NestMiddleware {
         path: '/',
         secure: process.env.NODE_ENV === 'production',
       });
+      req.csrfToken = token;
+    } else {
+      req.csrfToken = req.cookies[csrfCookieName];
     }
 
     const safeMethods = ['GET', 'HEAD', 'OPTIONS'];

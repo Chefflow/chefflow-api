@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
+import { User } from '@prisma/client';
 import { AuthService } from '../auth.service';
 
 @Injectable()
@@ -24,14 +25,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     refreshToken: string,
     profile: Profile,
     done: VerifyCallback,
-  ): Promise<any> {
+  ): Promise<void> {
     const { id, name, emails, photos } = profile;
     if (!emails || emails.length === 0) {
-      return done(new Error('No email provided by Google'), undefined);
+      done(new Error('No email provided by Google'), undefined);
+      return;
     }
     const primaryEmail = emails[0];
     if (primaryEmail.verified === false) {
-      return done(new Error('Email not verified by Google'), undefined);
+      done(new Error('Email not verified by Google'), undefined);
+      return;
     }
     try {
       const fullName =

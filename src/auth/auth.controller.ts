@@ -10,6 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { User } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -19,6 +20,14 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+
+interface RequestWithCsrfToken extends Request {
+  csrfToken?: string;
+}
+
+interface RequestWithUserAndRefreshToken extends Request {
+  user?: User & { refreshToken?: string };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -44,6 +53,12 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
+  }
+
+  @Public()
+  @Get('csrf')
+  getCsrfToken(@Req() req: RequestWithCsrfToken) {
+    return { csrfToken: req.csrfToken };
   }
 
   @Public()
@@ -81,7 +96,7 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  getProfile(@CurrentUser() user: any) {
+  getProfile(@CurrentUser() user: User) {
     return new UserEntity(user);
   }
 
@@ -90,13 +105,15 @@ export class AuthController {
   @Get('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshTokens(
-    @Req() req: Request,
+    @Req() req: RequestWithUserAndRefreshToken,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = req.user as any;
+    if (!req.user) {
+      throw new Error('User not found in request');
+    }
     const tokens = await this.authService.refreshTokens(
-      user.username,
-      user.refreshToken,
+      req.user.username,
+      req.user.refreshToken || '',
     );
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { message: 'Tokens refreshed' };
@@ -106,7 +123,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
-    @CurrentUser() user: any,
+    @CurrentUser() user: User,
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.authService.logout(user.username);
@@ -123,7 +140,7 @@ export class AuthController {
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleOAuthGuard)
-  async googleAuthCallback(@CurrentUser() user: any, @Res() res: Response) {
+  async googleAuthCallback(@CurrentUser() user: User, @Res() res: Response) {
     const authResponse = await this.authService.loginWithOAuth(user);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 

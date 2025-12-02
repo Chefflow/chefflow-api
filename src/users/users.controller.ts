@@ -10,6 +10,7 @@ import {
   HttpStatus,
   ForbiddenException,
 } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -31,7 +32,7 @@ export class UsersController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  async getMe(@CurrentUser() user: any): Promise<UserEntity> {
+  async getMe(@CurrentUser() user: User): Promise<UserEntity> {
     return new UserEntity(user);
   }
 
@@ -54,7 +55,7 @@ export class UsersController {
   async update(
     @Param('username') username: string,
     @Body() updateUserDto: UpdateUserDto,
-    @CurrentUser() currentUser: any,
+    @CurrentUser() currentUser: User,
   ): Promise<UserEntity> {
     if (currentUser.username !== username) {
       throw new ForbiddenException('You can only update your own profile');
@@ -68,7 +69,7 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('username') username: string,
-    @CurrentUser() currentUser: any,
+    @CurrentUser() currentUser: User,
   ): Promise<void> {
     if (currentUser.username !== username) {
       throw new ForbiddenException('You can only delete your own account');
