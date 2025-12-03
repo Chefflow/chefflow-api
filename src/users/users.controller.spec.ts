@@ -201,7 +201,7 @@ describe('UsersController', () => {
       );
 
       expect(result).toBeDefined();
-      expect(mockUsersService.update).toHaveBeenCalledWith(updateUserDto);
+      expect(mockUsersService.update).toHaveBeenCalledWith('testuser', updateUserDto);
     });
   });
 

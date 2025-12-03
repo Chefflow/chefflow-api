@@ -61,7 +61,7 @@ export class UsersController {
       throw new ForbiddenException('You can only update your own profile');
     }
 
-    const user = await this.usersService.update(updateUserDto);
+    const user = await this.usersService.update(username, updateUserDto);
     return new UserEntity(user);
   }
 

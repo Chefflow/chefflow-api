@@ -108,12 +108,12 @@ export class AuthController {
     @Req() req: RequestWithUserAndRefreshToken,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (!req.user) {
-      throw new Error('User not found in request');
+    if (!req.user?.username || !req.user?.refreshToken) {
+      throw new Error('Invalid user or refresh token');
     }
     const tokens = await this.authService.refreshTokens(
       req.user.username,
-      req.user.refreshToken || '',
+      req.user.refreshToken,
     );
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { message: 'Tokens refreshed' };

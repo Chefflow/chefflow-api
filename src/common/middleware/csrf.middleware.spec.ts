@@ -25,10 +25,10 @@ describe('CsrfMiddleware', () => {
     expect(middleware).toBeDefined();
   });
 
-  it('should set XSRF-TOKEN cookie if missing', () => {
+  it('should set CSRF-TOKEN cookie if missing', () => {
     middleware.use(req as Request, res as Response, next);
     expect(res.cookie).toHaveBeenCalledWith(
-      'XSRF-TOKEN',
+      'CSRF-TOKEN',
       expect.any(String),
       expect.objectContaining({
         httpOnly: false,
@@ -43,7 +43,7 @@ describe('CsrfMiddleware', () => {
     req.cookies = undefined;
     middleware.use(req as Request, res as Response, next);
     expect(res.cookie).toHaveBeenCalledWith(
-      'XSRF-TOKEN',
+      'CSRF-TOKEN',
       expect.any(String),
       expect.objectContaining({
         httpOnly: false,
@@ -53,7 +53,7 @@ describe('CsrfMiddleware', () => {
   });
 
   it('should not set cookie if already present', () => {
-    req.cookies!['XSRF-TOKEN'] = 'existing-token';
+    req.cookies!['CSRF-TOKEN'] = 'existing-token';
     middleware.use(req as Request, res as Response, next);
     expect(res.cookie).not.toHaveBeenCalled();
     expect(next).toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe('CsrfMiddleware', () => {
 
   it('should throw ForbiddenException if header is missing for POST', () => {
     req.method = 'POST';
-    req.cookies!['XSRF-TOKEN'] = 'token';
+    req.cookies!['CSRF-TOKEN'] = 'token';
     (req.get as jest.Mock).mockReturnValue(undefined);
 
     expect(() => {
@@ -77,7 +77,7 @@ describe('CsrfMiddleware', () => {
 
   it('should throw ForbiddenException if tokens mismatch', () => {
     req.method = 'POST';
-    req.cookies!['XSRF-TOKEN'] = 'token1';
+    req.cookies!['CSRF-TOKEN'] = 'token1';
     (req.get as jest.Mock).mockReturnValue('token2');
 
     expect(() => {
@@ -87,7 +87,7 @@ describe('CsrfMiddleware', () => {
 
   it('should pass if tokens match for POST', () => {
     req.method = 'POST';
-    req.cookies!['XSRF-TOKEN'] = 'valid-token';
+    req.cookies!['CSRF-TOKEN'] = 'valid-token';
     (req.get as jest.Mock).mockReturnValue('valid-token');
 
     middleware.use(req as Request, res as Response, next);
