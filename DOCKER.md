@@ -1,6 +1,6 @@
 # Docker Configuration Guide
 
-This document explains the Docker setup for ChefFlow API, including architecture, workflows, and best practices.
+This document explains the simplified Docker setup for ChefFlow API, optimized for cloud deployment.
 
 ## Table of Contents
 
@@ -8,14 +8,14 @@ This document explains the Docker setup for ChefFlow API, including architecture
 - [Dockerfile Multi-Stage Build](#dockerfile-multi-stage-build)
 - [Docker Compose Services](#docker-compose-services)
 - [Quick Start](#quick-start)
-- [Development Workflows](#development-workflows)
 - [Common Commands Reference](#common-commands-reference)
+- [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
 - [Best Practices](#best-practices)
 
 ## Architecture Overview
 
-The project uses a **multi-stage Dockerfile** and **docker-compose.yml** with three services:
+The project uses a **simplified multi-stage Dockerfile** optimized for cloud deployment:
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -28,42 +28,41 @@ The project uses a **multi-stage Dockerfile** and **docker-compose.yml** with th
 │  2. app (PRODUCTION - target: production)   │
 │     - Port: 4000                            │
 │     - Compiled code (dist/)                 │
-│     - No hot-reload                         │
-│                                             │
-│  3. app-dev (DEVELOPMENT - target: dev)     │
-│     - Port: 4000                            │
-│     - Real-time code (volumes)              │
-│     - Hot-reload enabled                    │
-│     - Profile: dev                          │
+│     - Auto-runs migrations on startup       │
 └─────────────────────────────────────────────┘
 ```
 
+**Key Design Decisions:**
+- Single production-ready configuration
+- Development happens locally (not in Docker)
+- No health check endpoints (handled by cloud provider)
+- Minimal resource configuration
+- Simplified dependency management
+
 ## Dockerfile Multi-Stage Build
 
-The Dockerfile consists of 3 stages optimized for different purposes:
+The Dockerfile consists of 4 stages optimized for production deployment:
 
-### Stage 1: `development`
-- Base image: `node:20-slim`
-- Installs OpenSSL (required by Prisma)
-- Installs pnpm 10.16.1
-- Installs all dependencies with `pnpm install --frozen-lockfile`
-- Copies all source code
-- Generates Prisma Client (uses `prisma.config.ts` with fallback URL)
-- Used by `app-dev` service for local development
+### Stage 1: `base`
+- Base image: `node:20`
+- Enables pnpm via corepack
+- Sets up PNPM_HOME environment
 
-### Stage 2: `build`
+### Stage 2: `deps`
+- Installs dependencies with `pnpm install --frozen-lockfile`
+- Separate layer for better caching
+
+### Stage 3: `build`
 - Compiles TypeScript code
-- Generates Prisma Client
-- Builds production bundle
-- Intermediate stage for production image
+- Generates Prisma Client with `npx prisma generate`
+- Builds production bundle with `pnpm build`
 
-### Stage 3: `production`
-- Fresh image (optimized)
-- Production dependencies only
-- Compiled code (`dist/`)
-- Includes `prisma.config.ts` for Prisma 7
-- Non-root user for security
-- Used by `app` service for production deployments
+### Stage 4: `production`
+- Fresh Node.js 20 image
+- Production dependencies only (`--prod`)
+- Copies compiled code from build stage
+- Copies Prisma schema for migrations
+- Exposes port 3000 (mapped to 4000 in docker-compose)
 
 ## Docker Compose Services
 
@@ -74,8 +73,7 @@ The Dockerfile consists of 3 stages optimized for different purposes:
 ```yaml
 Port: 5432
 Volume: postgres_data (persistent storage)
-Health check: Ensures database is ready before starting app services
-Resource limits: 1 CPU, 1GB RAM (max), 256MB (reserved)
+Restart policy: unless-stopped
 ```
 
 **Environment Variables:**
@@ -90,39 +88,16 @@ Resource limits: 1 CPU, 1GB RAM (max), 256MB (reserved)
 ```yaml
 Port: 4000
 Target: production
-Command: pnpm prisma migrate deploy && node dist/main.js
-Volumes: None (uses compiled code in image)
-Resource limits: 1 CPU, 512MB RAM (max), 256MB (reserved)
+Command: sh -c "pnpm prisma migrate deploy && node dist/main.js"
+Depends on: postgres (service_started)
+Restart policy: unless-stopped
 ```
 
 **Key Features:**
 - Compiled TypeScript code
-- Runs migrations on startup
+- Runs migrations automatically on startup (`prisma migrate deploy`)
 - Optimized image size
-- Non-root user execution
-
-### 3. app-dev (DEVELOPMENT)
-
-**Development environment with hot-reload**
-
-```yaml
-Port: 4000
-Target: development
-Profile: dev (requires --profile dev to start)
-Command: pnpm run start:dev
-Resource limits: 1 CPU, 1GB RAM (max), 512MB (reserved)
-```
-
-**Mounted Volumes:**
-- `.:/app` - Real-time code synchronization
-- `/app/node_modules` - Excludes local node_modules
-- `pnpm-cache:/root/.local/share/pnpm/store` - Persistent pnpm cache
-
-**Key Features:**
-- Hot-reload enabled (changes reflect immediately)
-- Prisma 7 configuration via `prisma.config.ts`
-- Higher rate limits for development
-- CORS set to `*` by default
+- Non-interactive migrations for production
 
 ## Quick Start
 
@@ -133,256 +108,69 @@ Resource limits: 1 CPU, 1GB RAM (max), 512MB (reserved)
 cp .env.example .env
 
 # 2. Edit .env with your configuration
-# (database credentials, JWT secret, etc.)
+# (database credentials, JWT secret, OAuth credentials, etc.)
 
-# 3. Start development environment
-pnpm run docker:dev
+# 3. Build and start services
+pnpm run docker:build
+pnpm run docker:up
 
 # 4. View logs to verify everything started
-pnpm run docker:dev:logs
+pnpm run docker:logs
 ```
 
 **Access Points:**
 - API: `http://localhost:4000`
-- Health check: `http://localhost:4000/health`
-- Readiness check: `http://localhost:4000/ready`
+- Database: `localhost:5432`
 
-### Daily Development Workflow
+### Local Development (Recommended)
 
-```bash
-# Morning: Start development environment
-pnpm run docker:dev
-
-# Work on your code (hot-reload active)
-# ...
-
-# View logs if needed
-pnpm run docker:dev:logs
-
-# Evening: Stop environment
-pnpm run docker:down
-```
-
-## Development Workflows
-
-### Workflow 1: Docker Development (Recommended)
-
-**Best for:** Full development environment with production parity and hot-reload.
-
-**When to use:**
-- Daily development work
-- Testing with production-like environment
-- Team collaboration (consistent environment)
-
-**Commands:**
+For development, run the application locally instead of using Docker:
 
 ```bash
-# Start development environment (port 4000)
-pnpm run docker:dev
-
-# View logs in real-time
-pnpm run docker:dev:logs
-
-# Stop environment
-pnpm run docker:down
-
-# Restart container (after .env changes)
-pnpm run docker:restart
-```
-
-**Pros:**
-- Hot-reload works perfectly
-- Production-like environment
-- No local Node.js installation needed
-- Consistent across team members
-
-**Cons:**
-- Slightly slower than native development
-- Requires Docker installation
-
-### Workflow 2: Installing New Dependencies
-
-**When you add new packages to package.json:**
-
-```bash
-# Option 1: Quick rebuild (recommended for most cases)
-pnpm run docker:dev:rebuild
-
-# Option 2: Full clean rebuild (if Option 1 fails)
-pnpm run docker:dev:clean
-```
-
-**What each command does:**
-
-- **`docker:dev:rebuild`**: Rebuilds without cache and restarts
-  - Fast and usually sufficient
-  - Use this first
-
-- **`docker:dev:clean`**: Removes pnpm-cache, rebuilds, and restarts
-  - More thorough, takes longer
-  - Use when having dependency issues
-  - Solves "Cannot find module" errors
-
-**Example workflow:**
-
-```bash
-# 1. Install new package locally
-pnpm add @nestjs/swagger
-
-# 2. Rebuild container to install in Docker
-pnpm run docker:dev:rebuild
-
-# 3. Verify it worked
-pnpm run docker:dev:logs
-```
-
-**Note:** With Prisma 7, the client is automatically generated during the Docker build using `prisma.config.ts` configuration.
-
-### Workflow 3: Local Development (Without Docker)
-
-**Best for:** Quick iteration without Docker overhead.
-
-**When to use:**
-- Rapid prototyping
-- Debugging with Node.js debugger
-- When Docker is slow on your machine
-
-**Setup:**
-
-```bash
-# 1. Start PostgreSQL only (in Docker)
+# 1. Start only PostgreSQL in Docker
 docker-compose up -d postgres
 
-# 2. Update DATABASE_URL in .env to use localhost
-# DATABASE_URL="postgresql://chefflow_user:chefflow_password@localhost:5432/chefflow?schema=public"
-
-# 3. Generate Prisma Client and run migrations
+# 2. Generate Prisma Client and run migrations
 pnpm run prisma:generate
 pnpm run prisma:migrate
 
-# 4. Start development server
+# 3. Start development server locally
 pnpm run start:dev
 ```
 
 **Pros:**
-- Faster startup
+- Faster startup and hot-reload
 - Direct access to Node.js debugger
-- No Docker overhead
-
-**Cons:**
-- Requires local Node.js and pnpm installation
-- Different environment from production
-- Database still needs Docker
-
-### Workflow 4: Production Testing
-
-**Best for:** Testing production builds before deployment.
-
-**When to use:**
-- Before deploying to production
-- Testing optimized builds
-- Verifying Docker configuration
-
-**Commands:**
-
-```bash
-# Start production environment (port 4000)
-pnpm run docker:up
-
-# View logs
-pnpm run docker:logs
-
-# Rebuild after code changes
-docker-compose up -d --build app
-
-# Stop services
-pnpm run docker:down
-```
-
-**Access Points:**
-- API: `http://localhost:4000`
-- Health check: `http://localhost:4000/health`
-- Readiness check: `http://localhost:4000/ready`
+- Easier dependency installation
+- Better IDE integration
 
 ## Common Commands Reference
-
-### Most Used Commands (Your Daily Workflow)
-
-```bash
-# Start development
-pnpm run docker:dev
-
-# Stop development
-pnpm run docker:down
-
-# View logs
-pnpm run docker:dev:logs
-
-# Restart after .env changes
-pnpm run docker:restart
-
-# Rebuild after installing dependencies
-pnpm run docker:dev:rebuild
-
-# Full clean rebuild (fixes dependency issues)
-pnpm run docker:dev:clean
-```
 
 ### Service Management
 
 ```bash
-# View running containers
-docker-compose ps
-docker-compose --profile dev ps  # Include app-dev
+# Build Docker image
+pnpm run docker:build
 
-# Start services
-pnpm run docker:dev              # Development (port 4000)
-pnpm run docker:up               # Production (port 4000)
+# Start services in background
+pnpm run docker:up
 
 # Stop services
-pnpm run docker:down             # Stop and remove containers
-docker-compose stop              # Stop without removing
+pnpm run docker:down
 
-# Restart services
-pnpm run docker:restart          # Restart dev container
-docker-compose restart app-dev   # Same as above
-docker-compose restart postgres  # Restart database
+# Restart app container
+pnpm run docker:restart
+
+# View logs (follow mode)
+pnpm run docker:logs
+
+# View all running containers
+docker-compose ps
 ```
 
-### Logs and Debugging
+### Database Management
 
 ```bash
-# View logs (pnpm commands)
-pnpm run docker:dev:logs         # Development logs (follow mode)
-pnpm run docker:logs             # All services logs (follow mode)
-
-# View logs (docker-compose commands)
-docker-compose logs app-dev -f       # Development logs
-docker-compose logs app -f           # Production logs
-docker-compose logs postgres -f      # Database logs
-docker-compose logs app-dev --tail=100  # Last 100 lines
-
-# Attach to container (see logs in foreground)
-pnpm run docker:dev:attach
-```
-
-### Executing Commands Inside Containers
-
-```bash
-# Open shell in container
-docker-compose exec app-dev sh
-docker-compose exec app sh
-
-# Run tests inside container
-docker-compose exec app-dev pnpm run test
-docker-compose exec app-dev pnpm run test:e2e
-
-# Run Prisma commands (Prisma 7)
-docker-compose exec app-dev pnpm prisma generate      # Regenerate Prisma Client
-docker-compose exec app-dev pnpm prisma studio        # Open Prisma Studio GUI
-docker-compose exec app-dev pnpm prisma migrate dev --name add_field
-docker-compose exec app pnpm prisma migrate deploy
-
 # Access PostgreSQL directly
 docker-compose exec postgres psql -U chefflow_user -d chefflow
 
@@ -390,23 +178,41 @@ docker-compose exec postgres psql -U chefflow_user -d chefflow
 # \dt              - List all tables
 # \d table_name    - Describe table
 # \q               - Exit
+
+# View database logs
+docker-compose logs postgres -f
+```
+
+### Executing Commands Inside Container
+
+```bash
+# Open shell in app container
+docker-compose exec app sh
+
+# Run Prisma commands
+docker-compose exec app pnpm prisma migrate deploy
+docker-compose exec app pnpm prisma generate
+docker-compose exec app pnpm prisma studio
+
+# Check application status
+docker-compose exec app node -v
+docker-compose exec app pnpm -v
 ```
 
 ### Building and Rebuilding
 
 ```bash
-# Rebuild commands (pnpm)
-pnpm run docker:dev:rebuild      # Quick rebuild without cache
-pnpm run docker:dev:clean        # Full clean: remove cache + rebuild
+# Build with cache
+pnpm run docker:build
 
-# Manual rebuild commands
-docker-compose build app-dev                    # Build with cache
-docker-compose build --no-cache app-dev         # Build without cache
-docker-compose up -d --build app-dev           # Build and start
+# Build without cache (after dependency changes)
+docker-compose build --no-cache
 
-# Build production
+# Build and start in one command
+docker-compose up -d --build
+
+# Rebuild specific service
 docker-compose build app
-docker-compose build --no-cache app
 ```
 
 ### Volume Management
@@ -415,14 +221,8 @@ docker-compose build --no-cache app
 # List volumes
 docker volume ls
 
-# Inspect specific volume
+# Inspect postgres data volume
 docker volume inspect chefflow-api_postgres_data
-docker volume inspect chefflow-api_pnpm-cache
-
-# Remove pnpm cache (when having dependency issues)
-pnpm run docker:clean:cache
-# or
-docker volume rm chefflow-api_pnpm-cache
 
 # Remove postgres data (WARNING: deletes all data!)
 docker volume rm chefflow-api_postgres_data
@@ -434,72 +234,77 @@ docker-compose down -v
 ### Clean Up
 
 ```bash
-# Clean up development environment
-pnpm run docker:clean            # Remove containers + volumes
-
-# Manual cleanup
-docker-compose down               # Remove containers
-docker-compose down -v            # Remove containers + volumes
-docker-compose down --rmi all -v  # Remove everything + images
-
-# System-wide Docker cleanup
-docker system prune -a --volumes  # Clean entire Docker system
-docker volume prune               # Remove unused volumes
-docker image prune -a             # Remove unused images
-```
-
-## Troubleshooting
-
-### New Dependencies Not Installing (pnpm-cache issue)
-
-**Symptoms:**
-- TypeScript compilation errors: `Cannot find module 'package-name'`
-- Package exists in `package.json` but not available in container
-- `pnpm install` inside container doesn't help
-- Container restart doesn't fix the issue
-
-**Root Cause:**
-The `pnpm-cache` volume retains old state and prevents new dependencies from installing properly.
-
-**Solution (Quick):**
-
-```bash
-# One command to fix everything
-pnpm run docker:dev:clean
-```
-
-**Solution (Step by Step):**
-
-```bash
-# 1. Stop all services
+# Stop and remove containers
 pnpm run docker:down
 
-# 2. Remove pnpm cache
-pnpm run docker:clean:cache
-# or: docker volume rm chefflow-api_pnpm-cache
+# Stop and remove containers + volumes
+docker-compose down -v
 
-# 3. Rebuild without cache
-docker-compose build --no-cache app-dev
+# Remove everything including images
+docker-compose down --rmi all -v
 
-# 4. Start services
-pnpm run docker:dev
+# System-wide Docker cleanup
+docker system prune -a --volumes
 ```
 
-**Verification:**
+## Environment Variables
+
+The application uses environment variables defined in `.env` file. See `.env.example` for all available options.
+
+**Required Variables:**
 
 ```bash
-# Check packages installed successfully
-docker-compose logs app-dev | grep "Packages:"
-# Should show: Packages: +742 (or similar number)
+# Database (automatically configured in docker-compose.yml)
+DATABASE_URL="postgresql://chefflow_user:chefflow_password@postgres:5432/chefflow?schema=public"
 
-# Verify application started without errors
-pnpm run docker:dev:logs
-# Should see: "Nest application successfully started"
+# Application
+NODE_ENV="production"
+PORT=4000
+
+# Security (REQUIRED - generate strong secrets!)
+JWT_SECRET="your-secret-key"
+JWT_EXPIRES_IN="7d"
+CSRF_SECRET="your-csrf-secret"
+
+# OAuth (Google)
+GOOGLE_CLIENT_ID="your-client-id"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+GOOGLE_CALLBACK_URL="http://localhost:4000/auth/google/callback"
+
+# Frontend
+FRONTEND_URL="http://localhost:5173"
+
+# CORS
+ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
+
+# Rate Limiting
+THROTTLE_TTL=60
+THROTTLE_LIMIT=10
 ```
 
-**Prevention:**
-- After adding dependencies, always use: `pnpm run docker:dev:rebuild`
-- If issues persist, use: `pnpm run docker:dev:clean`
+**Important Notes:**
+- When running in Docker, `DATABASE_URL` uses `postgres` hostname (not `localhost`)
+- Generate strong secrets for production:
+  ```bash
+  # JWT_SECRET
+  openssl rand -base64 32
+
+  # CSRF_SECRET
+  openssl rand -base64 32
+  ```
+- Never commit `.env` file with real secrets
+- Update `.env` when pulling changes (check `.env.example`)
+
+## Port Mapping
+
+| Service    | Container Port | Host Port | Purpose              |
+|------------|----------------|-----------|----------------------|
+| postgres   | 5432           | 5432      | PostgreSQL database  |
+| app        | 3000           | 4000      | Production API       |
+
+**Note:** The Dockerfile exposes port 3000, but docker-compose maps it to 4000 on the host.
+
+## Troubleshooting
 
 ### Container Keeps Restarting
 
@@ -510,28 +315,28 @@ pnpm run docker:dev:logs
 **Check logs:**
 
 ```bash
-docker-compose logs app-dev --tail=50
+pnpm run docker:logs
 ```
 
 **Common Causes and Solutions:**
 
 1. **Database not ready**
-   - Wait for healthcheck (usually 10-30 seconds)
-   - Check: `docker-compose ps` - postgres should be "healthy"
+   - Wait a few seconds for PostgreSQL to start
+   - Check: `docker-compose ps` - postgres should be "Up"
 
 2. **Migration errors**
    ```bash
    # View migration errors
-   docker-compose logs app-dev | grep "prisma"
+   docker-compose logs app | grep "prisma"
 
-   # Fix: Reset migrations
-   docker-compose exec app-dev pnpm prisma migrate dev
+   # Check migration status
+   docker-compose exec app pnpm prisma migrate status
    ```
 
 3. **Missing environment variables**
    ```bash
    # Check .env file exists and has required variables
-   cat .env | grep -E "DATABASE_URL|JWT_SECRET|PORT"
+   cat .env | grep -E "DATABASE_URL|JWT_SECRET|CSRF_SECRET"
 
    # Copy from template if missing
    cp .env.example .env
@@ -539,10 +344,11 @@ docker-compose logs app-dev --tail=50
 
 4. **Port already in use**
    ```bash
-   # Check what's using port 3001
-   lsof -i :3001
+   # Check what's using port 4000
+   lsof -i :4000
 
    # Kill process or change port in docker-compose.yml
+   kill -9 <PID>
    ```
 
 ### Database Connection Refused
@@ -554,9 +360,8 @@ docker-compose logs app-dev --tail=50
 **Solutions:**
 
 ```bash
-# 1. Check if postgres is healthy
+# 1. Check if postgres is running
 docker-compose ps
-# postgres should show "healthy" status
 
 # 2. Check database logs
 docker-compose logs postgres
@@ -569,31 +374,8 @@ docker-compose logs postgres
 # 4. Restart database
 docker-compose restart postgres
 
-# 5. Test readiness endpoint
-curl http://localhost:4000/ready
-```
-
-### Hot-Reload Not Working
-
-**Symptoms:**
-- Code changes don't reflect in running app
-- Need to restart container to see changes
-
-**Solutions:**
-
-```bash
-# 1. Check volumes are mounted correctly
-docker-compose config
-# Should see: .:/app under volumes
-
-# 2. Restart container
+# 5. Restart app
 pnpm run docker:restart
-
-# 3. Rebuild if necessary
-pnpm run docker:dev:rebuild
-
-# 4. Check file is not in excluded directory
-# node_modules, dist, .git are excluded from hot-reload
 ```
 
 ### Migration Errors
@@ -606,18 +388,38 @@ pnpm run docker:dev:rebuild
 
 ```bash
 # Option 1: Apply migrations manually
-docker-compose exec app-dev pnpm prisma migrate dev
+docker-compose exec app pnpm prisma migrate deploy
 
-# Option 2: Reset database (WARNING: deletes all data!)
+# Option 2: Check migration status
+docker-compose exec app pnpm prisma migrate status
+
+# Option 3: Reset database (WARNING: deletes all data!)
 docker-compose down -v
 docker volume rm chefflow-api_postgres_data
-pnpm run docker:dev
+pnpm run docker:up
+```
 
-# Option 3: Reset only migrations
-pnpm run prisma:migrate:reset
+### Dependency Installation Issues
 
-# View migration history
-docker-compose exec app-dev pnpm prisma migrate status
+**Symptoms:**
+- Build fails with "Cannot find module" errors
+- Dependencies not installing
+
+**Solutions:**
+
+```bash
+# 1. Rebuild without cache
+docker-compose build --no-cache
+
+# 2. Verify pnpm-lock.yaml is present
+ls -la pnpm-lock.yaml
+
+# 3. Clean Docker build cache
+docker builder prune -a
+
+# 4. Rebuild and start
+pnpm run docker:build
+pnpm run docker:up
 ```
 
 ### Port Already in Use
@@ -637,7 +439,7 @@ lsof -i :5432
 kill -9 <PID>
 
 # Or change port in docker-compose.yml
-# Change: "4000:4000" to "4001:4000"
+# Change: "4000:4000" to "4001:3000"
 ```
 
 ### Out of Disk Space
@@ -660,49 +462,6 @@ docker image prune -a
 
 # Remove unused volumes
 docker volume prune
-
-# Remove specific unused volumes
-docker volume ls
-docker volume rm <volume_name>
-```
-
-### Permission Errors with Volumes
-
-**Symptoms:**
-- "Permission denied" errors
-- Files can't be written
-
-**Solutions:**
-
-```bash
-# Fix permissions inside container
-docker-compose exec app-dev chown -R node:node /app
-
-# Or rebuild with correct permissions
-pnpm run docker:dev:rebuild
-```
-
-### TypeScript Compilation Errors After Pull
-
-**Symptoms:**
-- After `git pull`, TypeScript errors appear
-- Types seem out of sync
-- Prisma Client types missing
-
-**Solutions:**
-
-```bash
-# 1. Regenerate Prisma Client (Prisma 7)
-docker-compose exec app-dev pnpm prisma generate
-
-# 2. Restart to pick up new types
-pnpm run docker:restart
-
-# 3. If still failing, rebuild container
-pnpm run docker:dev:rebuild
-
-# 4. If still failing, full clean
-pnpm run docker:dev:clean
 ```
 
 ### Environment Variables Not Updating
@@ -717,57 +476,53 @@ pnpm run docker:dev:clean
 pnpm run docker:restart
 
 # If not working, rebuild
-pnpm run docker:dev:rebuild
+docker-compose up -d --build
 ```
 
 ## Best Practices
 
 ### Development
 
-1. **Use the right command for the job**
-   - Daily work: `pnpm run docker:dev`
-   - After installing packages: `pnpm run docker:dev:rebuild`
-   - Dependency issues: `pnpm run docker:dev:clean`
+1. **Develop locally, deploy with Docker**
+   - Run `pnpm run start:dev` locally for development
+   - Use Docker only for testing production builds
+   - Keep only PostgreSQL in Docker during development
 
-2. **Monitor logs regularly**
-   ```bash
-   pnpm run docker:dev:logs
-   ```
-   Helps catch issues early
-
-3. **Keep .env updated**
+2. **Keep .env updated**
    - Check `.env.example` when pulling changes
    - Never commit `.env` with secrets
+   - Generate strong secrets for production
 
-4. **Use hot-reload effectively**
-   - Most changes reload automatically
-   - Changes to `package.json` require rebuild
-   - Changes to `.env` require restart
+3. **Test production builds locally**
+   ```bash
+   pnpm run docker:build
+   pnpm run docker:up
+   ```
+   Test before deploying to cloud
 
 ### Production
 
-1. **Test production builds locally**
-   ```bash
-   pnpm run docker:up
-   ```
-   Test before deploying
-
-2. **Run migrations separately in production**
-   ```bash
-   pnpm prisma migrate deploy
-   ```
-   Don't use interactive migrations in production
-
-3. **Use environment-specific secrets**
+1. **Use environment-specific secrets**
    - Never use default passwords in production
-   - Generate strong `JWT_SECRET`
+   - Generate strong secrets:
+     ```bash
+     openssl rand -base64 32
+     ```
+
+2. **Run migrations separately**
+   - Migrations run automatically via `docker-compose.yml`
+   - Command: `pnpm prisma migrate deploy && node dist/main.js`
+   - Non-interactive, safe for production
+
+3. **Monitor logs**
    ```bash
-   openssl rand -base64 32
+   pnpm run docker:logs
    ```
 
-4. **Monitor resource usage**
-   - Resource limits configured in `docker-compose.yml`
-   - Adjust based on your server capacity
+4. **Health checks**
+   - This configuration doesn't include health check endpoints
+   - Assumes cloud provider handles health monitoring
+   - If needed, add `/health` endpoint to `app.controller.ts`
 
 ### Database
 
@@ -784,107 +539,76 @@ pnpm run docker:dev:rebuild
 
 3. **Use Prisma Studio for data inspection**
    ```bash
-   docker-compose exec app-dev pnpm prisma studio
+   # Local development
+   pnpm run prisma:studio
+
+   # Inside Docker
+   docker-compose exec app pnpm prisma studio
    # Opens GUI at http://localhost:5555
    ```
 
 ### Images
 
-1. **Tag images properly**
+1. **Keep images small**
+   - Multi-stage builds already optimize this
+   - Production image only includes necessary files
+   - No dev dependencies in production stage
+
+2. **Rebuild after dependency changes**
+   ```bash
+   docker-compose build --no-cache
+   ```
+
+3. **Tag images for deployment**
    ```bash
    docker build -t chefflow-api:v1.0.0 .
    ```
-   Use semantic versioning
 
-2. **Keep images small**
-   - Multi-stage builds already optimize this
-   - Don't add unnecessary files
+## Cloud Deployment Notes
 
-3. **Scan for vulnerabilities**
-   ```bash
-   docker scan chefflow-api-app
-   ```
+This Docker configuration is optimized for cloud platforms like:
+- **Railway**: Automatically detects Dockerfile
+- **Render**: Uses Dockerfile for deployment
+- **Fly.io**: Supports docker-compose or Dockerfile
+- **DigitalOcean App Platform**: Dockerfile support
+- **AWS ECS/Fargate**: Container-based deployment
+
+**Cloud-specific considerations:**
+- Health checks handled by cloud provider
+- Environment variables managed in cloud dashboard
+- Database usually provided as managed service
+- Auto-scaling based on container metrics
+- No need for local resource limits
 
 ## Quick Reference Card
 
 ```bash
 # 🚀 Start/Stop
-pnpm run docker:dev              # Start development
-pnpm run docker:down             # Stop everything
+pnpm run docker:up               # Start all services
+pnpm run docker:down             # Stop all services
 
-# 📦 After Installing Dependencies
-pnpm run docker:dev:rebuild      # Quick rebuild
-pnpm run docker:dev:clean        # Full clean rebuild
+# 🔨 Build
+pnpm run docker:build            # Build image
+docker-compose build --no-cache  # Build without cache
 
 # 📋 Logs
-pnpm run docker:dev:logs         # View dev logs
+pnpm run docker:logs             # View logs (follow mode)
 
 # 🔄 Restart
-pnpm run docker:restart          # Restart container
+pnpm run docker:restart          # Restart app container
 
 # 🗄️ Database
 docker-compose exec postgres psql -U chefflow_user -d chefflow
-docker-compose exec app-dev pnpm prisma studio
-
-# 🧪 Testing
-docker-compose exec app-dev pnpm run test
-docker-compose exec app-dev pnpm run test:e2e
+pnpm run prisma:studio           # Local Prisma Studio
 
 # 🧹 Cleanup
-pnpm run docker:clean            # Remove all
-pnpm run docker:clean:cache      # Remove pnpm cache only
+docker-compose down -v           # Remove containers + volumes
+docker system prune -a --volumes # Clean entire Docker system
 ```
-
-## Environment Variables
-
-The application uses environment variables defined in `.env` file. See `.env.example` for all available options.
-
-**Key Variables:**
-
-```bash
-# Database (automatically set in docker-compose.yml for containers)
-DATABASE_URL="postgresql://user:pass@postgres:5432/dbname?schema=public"
-
-# Application
-NODE_ENV="development"
-PORT=4000
-
-# Security
-JWT_SECRET="your-secret-key"
-JWT_EXPIRES_IN="7d"
-
-# OAuth
-GOOGLE_CLIENT_ID="your-client-id"
-GOOGLE_CLIENT_SECRET="your-client-secret"
-GOOGLE_CALLBACK_URL="http://localhost:4000/auth/google/callback"
-
-# Frontend
-FRONTEND_URL="http://localhost:3000"
-
-# CORS
-ALLOWED_ORIGINS="http://localhost:3000"
-
-# Rate Limiting
-THROTTLE_TTL=60
-THROTTLE_LIMIT=10
-```
-
-**Important Notes:**
-- When running in Docker, `DATABASE_URL` uses `postgres` hostname (not `localhost`)
-- Generate strong `JWT_SECRET` for production: `openssl rand -base64 32`
-- Never commit `.env` file with real secrets
-
-## Port Mapping
-
-| Service    | Container Port | Host Port | Purpose              |
-|------------|----------------|-----------|----------------------|
-| postgres   | 5432           | 5432      | PostgreSQL database  |
-| app        | 4000           | 4000      | Production API       |
-| app-dev    | 4000           | 4000      | Development API      |
 
 ## Additional Resources
 
 - [Docker Documentation](https://docs.docker.com/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Prisma Docker Guide](https://www.prisma.io/docs/guides/deployment/deployment-guides/deploying-to-docker)
+- [Prisma Deployment Guide](https://www.prisma.io/docs/guides/deployment)
 - [NestJS Docker](https://docs.nestjs.com/recipes/docker)

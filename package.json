@@ -23,11 +23,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "docker:dev": "docker-compose --profile dev up -d",
-    "docker:dev:logs": "docker-compose logs -f app-dev",
+    "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose --profile dev down --remove-orphans",
-    "docker:logs": "docker-compose logs -f"
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f app",
+    "docker:restart": "docker-compose restart app"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
