@@ -3,11 +3,14 @@
 # ============================================
 FROM node:20-slim AS development
 
-# Install OpenSSL for Prisma compatibility
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL for Prisma compatibility and security updates
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openssl && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Enable corepack and install pnpm (pinned version)
-RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 
 WORKDIR /app
 
@@ -32,11 +35,14 @@ CMD ["pnpm", "run", "start:dev"]
 # ============================================
 FROM node:20-slim AS build
 
-# Install OpenSSL for Prisma compatibility
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL for Prisma compatibility and security updates
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openssl && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Enable corepack and install pnpm (pinned version)
-RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
 
 WORKDIR /app
 
@@ -46,23 +52,30 @@ COPY package.json pnpm-lock.yaml ./
 # Install all dependencies (needed for build)
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source code (excluding test files via .dockerignore)
 COPY . .
 
 # Generate Prisma Client and build
-RUN pnpm prisma generate
-RUN pnpm run build
+RUN pnpm prisma generate && \
+    pnpm run build
 
 # ============================================
 # PRODUCTION STAGE (Optimized runtime)
 # ============================================
 FROM node:20-slim AS production
 
-# Install OpenSSL for Prisma compatibility
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Install OpenSSL for Prisma compatibility, dumb-init for proper signal handling, and security updates
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openssl dumb-init && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Enable corepack and install pnpm (pinned version)
-RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.19.0 --activate
+
+# Create non-root user for security (before WORKDIR to set ownership)
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nestjs
 
 WORKDIR /app
 
@@ -77,20 +90,23 @@ RUN pnpm install --prod --frozen-lockfile && \
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./
-COPY healthcheck.js ./
+COPY --from=build /app/healthcheck.js ./
 
 # Generate Prisma Client in production
 RUN pnpm prisma generate
 
-# Create non-root user for security
-RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nestjs
+# Change ownership of app directory to non-root user
+RUN chown -R nestjs:nodejs /app
+
+# Switch to non-root user
 USER nestjs
 
 EXPOSE 4000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# Health check with configurable timeout
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD node healthcheck.js
 
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

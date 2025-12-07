@@ -2,7 +2,7 @@ import http from 'http';
 
 const options = {
   host: 'localhost',
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 4000,
   path: '/ready',
   timeout: parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 5000,
   headers: {

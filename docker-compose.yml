@@ -44,6 +44,8 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-10}
+      CSRF_SECRET: ${CSRF_SECRET}
+      HEALTH_CHECK_TIMEOUT: ${HEALTH_CHECK_TIMEOUT:-5000}
     ports:
       - '4000:4000'
     depends_on:
@@ -78,6 +80,8 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      CSRF_SECRET: ${CSRF_SECRET:-dev-csrf-secret}
+      HEALTH_CHECK_TIMEOUT: ${HEALTH_CHECK_TIMEOUT:-5000}
     ports:
       - '4000:4000'
     depends_on:

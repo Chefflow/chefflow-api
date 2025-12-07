@@ -121,6 +121,11 @@ Thumbs.db
 .gitignore
 README.md
 
+# Documentation
+CLAUDE.md
+DOCKER.md
+*.md
+
 # Docker
 Dockerfile*
 docker-compose*
@@ -130,7 +135,18 @@ docker-compose*
 coverage
 .nyc_output
 test
+*.spec.ts
+*.e2e-spec.ts
 
 # Build artifacts
 dist
 build
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.circleci
+
+# Editor specific
+*.sublime-project
+*.sublime-workspace
