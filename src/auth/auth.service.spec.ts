@@ -187,6 +187,7 @@ describe('AuthService', () => {
         username: 'existing',
         email: 'new@example.com',
         password: 'password123',
+        name: 'Existing User',
       };
 
       mockPrismaService.user.findFirst.mockResolvedValue({
@@ -204,6 +205,7 @@ describe('AuthService', () => {
         username: 'newuser',
         email: 'existing@example.com',
         password: 'password123',
+        name: 'New User',
       };
 
       mockPrismaService.user.findFirst.mockResolvedValue({
@@ -325,7 +327,7 @@ describe('AuthService', () => {
   describe('validateOAuthUser', () => {
     it('should return existing OAuth user', async () => {
       const oauthData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: '12345',
         email: 'oauth@example.com',
         name: 'OAuth User',
@@ -355,7 +357,7 @@ describe('AuthService', () => {
 
     it('should link OAuth to existing LOCAL user by email', async () => {
       const oauthData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: '12345',
         email: 'existing@example.com',
         name: 'OAuth User',
@@ -379,7 +381,9 @@ describe('AuthService', () => {
       mockPrismaService.user.findFirst.mockResolvedValueOnce(null);
 
       // 2. findUnique by email returns existing LOCAL user
-      mockPrismaService.user.findUnique.mockResolvedValueOnce(existingLocalUser);
+      mockPrismaService.user.findUnique.mockResolvedValueOnce(
+        existingLocalUser,
+      );
 
       mockPrismaService.user.update.mockResolvedValueOnce(updatedUser);
 
@@ -397,7 +401,7 @@ describe('AuthService', () => {
 
     it('should create new user if OAuth user does not exist', async () => {
       const oauthData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: '12345',
         email: 'new@example.com',
         name: 'New OAuth User',
@@ -441,7 +445,7 @@ describe('AuthService', () => {
 
     it('should generate unique username if base username is taken', async () => {
       const oauthData = {
-        provider: 'GOOGLE',
+        provider: 'GOOGLE' as const,
         providerId: '12345',
         email: 'test@example.com',
         name: 'Test User',
@@ -481,7 +485,14 @@ describe('AuthService', () => {
       const user = {
         username: 'oauthuser',
         email: 'oauth@example.com',
-        provider: 'GOOGLE',
+        passwordHash: null,
+        hashedRefreshToken: null,
+        name: 'OAuth User',
+        image: null,
+        provider: 'GOOGLE' as const,
+        providerId: '12345',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
 
       jest.spyOn(service, 'getTokens').mockResolvedValue({
