@@ -101,7 +101,6 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(JwtRefreshGuard)
   @Get('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshTokens(
