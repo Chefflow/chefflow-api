@@ -17,8 +17,8 @@ async function bootstrap() {
   );
   app.use(cookieParser());
 
-  const csrfMiddleware = new CsrfMiddleware();
-  app.use(csrfMiddleware.use);
+  // const csrfMiddleware = new CsrfMiddleware();
+  // app.use(csrfMiddleware.use);
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
@@ -27,7 +27,7 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
