@@ -8,6 +8,7 @@ import {
   UseGuards,
   Res,
   Req,
+  UseFilters,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { User } from '@prisma/client';
@@ -20,6 +21,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { RefreshTokenExceptionFilter } from './filters/refresh-token-exception.filter';
 
 interface RequestWithCsrfToken extends Request {
   csrfToken?: string;
@@ -101,6 +103,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(JwtRefreshGuard)
+  @UseFilters(RefreshTokenExceptionFilter)
   @Get('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshTokens(
