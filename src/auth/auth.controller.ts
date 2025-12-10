@@ -44,7 +44,7 @@ export class AuthController {
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: true, // Always true (works on localhost for development)
+      secure: true,
       sameSite: isProduction ? 'lax' : 'none',
       maxAge: 15 * 60 * 1000,
       path: '/',
@@ -128,8 +128,22 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken');
-    res.clearCookie('Refresh', { path: '/auth/refresh' });
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
+      path: '/',
+    });
+
+    res.clearCookie('Refresh', {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
+      path: '/auth/refresh',
+    });
+
     return { message: 'Logged out successfully' };
   }
 
