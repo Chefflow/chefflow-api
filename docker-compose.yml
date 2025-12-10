@@ -6,10 +6,22 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-chefflow}
       POSTGRES_USER: ${POSTGRES_USER:-chefflow_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chefflow_password}
-    ports:
-      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-chefflow_user} -d ${POSTGRES_DB:-chefflow}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
 
   app:
     build:
@@ -19,7 +31,7 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: ${PORT:-4000}
@@ -27,7 +39,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-10}
@@ -38,7 +50,11 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - '4000:4000'
-    command: sh -c "pnpm prisma migrate deploy && node dist/src/main.js"
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
 
 volumes:
   postgres_data:

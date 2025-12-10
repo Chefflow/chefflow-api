@@ -3,6 +3,10 @@ import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
   datasource: {
-    url: process.env.DATABASE_URL || 'YOUR_DATABASE_LINK',
+    // Valid PostgreSQL URL for build-time (does not connect, only generates types)
+    // In runtime, docker-compose.yml passes the real DATABASE_URL
+    url:
+      process.env.DATABASE_URL ||
+      'postgresql://user:password@localhost:5432/chefflow?schema=public',
   },
 });
