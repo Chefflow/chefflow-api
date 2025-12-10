@@ -40,18 +40,20 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true, // Always true (works on localhost for development)
+      sameSite: isProduction ? 'lax' : 'none',
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
 
     res.cookie('Refresh', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
