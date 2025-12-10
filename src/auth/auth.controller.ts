@@ -122,14 +122,10 @@ export class AuthController {
     return { message: 'Tokens refreshed' };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @CurrentUser() user: User,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    await this.authService.logout(user.username);
+  async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('accessToken');
     res.clearCookie('Refresh', { path: '/auth/refresh' });
     return { message: 'Logged out successfully' };
