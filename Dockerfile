@@ -1,10 +1,14 @@
 # ============================
-# Base: habilita pnpm
+# Base: Node 20 Alpine
 # ============================
-FROM node:20 AS base
+FROM node:20-alpine AS base
+
+RUN apk add --no-cache openssl libc6-compat && \
+    corepack enable && \
+    corepack prepare pnpm@10.19.0 --activate
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
 
 WORKDIR /app
 
@@ -12,39 +16,47 @@ WORKDIR /app
 # Dependencies
 # ============================
 FROM base AS deps
+
 COPY package.json pnpm-lock.yaml ./
+
 RUN pnpm install --frozen-lockfile
 
 # ============================
-# Build (NestJS + Prisma)
+# Build
 # ============================
 FROM base AS build
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN pnpx prisma generate
-RUN pnpm build
+RUN pnpm exec prisma generate && \
+    pnpm build && \
+    pnpm prune --prod
 
 # ============================
-# Production Image
+# Production
 # ============================
-FROM node:20 AS production
-ENV NODE_ENV=production
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache openssl libc6-compat netcat-openbsd && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
 
 WORKDIR /app
 
-# Instala solo dependencias de producción + Prisma CLI
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --prod --frozen-lockfile && pnpm add -D prisma
+ENV NODE_ENV=production
 
-# Copia el resultado de la build
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/prisma.config.ts ./
+COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nestjs:nodejs /app/package.json ./package.json
+COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
+COPY --from=build --chown=nestjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 
-# Genera Prisma Client en producción
-RUN pnpx prisma generate
+COPY --chown=nestjs:nodejs docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
-EXPOSE 3000
+USER nestjs
 
-CMD ["node", "dist/src/main.js"]
+EXPOSE 4000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

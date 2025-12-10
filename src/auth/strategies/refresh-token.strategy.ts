@@ -35,7 +35,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
 
   validate(req: Request, payload: RefreshTokenPayload) {
     const refreshToken = req.cookies.Refresh;
-    if (!refreshToken) throw new ForbiddenException('Refresh token malformed');
+    if (!refreshToken) throw new ForbiddenException('Access Denied');
 
     return {
       ...payload,

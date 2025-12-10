@@ -15,7 +15,8 @@ describe('UsersController', () => {
     username: 'testuser',
     email: 'test@example.com',
     name: 'Test User',
-    password: 'hashedPassword',
+    passwordHash: 'hashedPassword',
+    hashedRefreshToken: null,
     image: null,
     provider: 'LOCAL' as const,
     providerId: null,
@@ -27,7 +28,8 @@ describe('UsersController', () => {
     username: 'anotheruser',
     email: 'another@example.com',
     name: 'Another User',
-    password: 'hashedPassword',
+    passwordHash: 'hashedPassword',
+    hashedRefreshToken: null,
     image: null,
     provider: 'LOCAL' as const,
     providerId: null,
@@ -84,7 +86,7 @@ describe('UsersController', () => {
     const createUserDto: CreateUserDto = {
       username: 'newuser',
       email: 'new@example.com',
-      password: 'NewPass1234!',
+      passwordHash: 'NewPass1234!',
       name: 'New User',
     };
 
@@ -185,7 +187,9 @@ describe('UsersController', () => {
 
       try {
         await controller.update('anotheruser', updateUserDto, mockUser);
-      } catch (error) {}
+      } catch {
+        // Expected to throw
+      }
 
       expect(updateSpy).not.toHaveBeenCalled();
     });
@@ -201,7 +205,10 @@ describe('UsersController', () => {
       );
 
       expect(result).toBeDefined();
-      expect(mockUsersService.update).toHaveBeenCalledWith('testuser', updateUserDto);
+      expect(mockUsersService.update).toHaveBeenCalledWith(
+        'testuser',
+        updateUserDto,
+      );
     });
   });
 
@@ -229,7 +236,9 @@ describe('UsersController', () => {
 
       try {
         await controller.remove('anotheruser', mockUser);
-      } catch (error) {}
+      } catch {
+        // Expected to throw
+      }
 
       expect(deleteSpy).not.toHaveBeenCalled();
     });

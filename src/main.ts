@@ -9,11 +9,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableShutdownHooks();
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+    }),
+  );
   app.use(cookieParser());
 
-  const csrfMiddleware = new CsrfMiddleware();
-  app.use(csrfMiddleware.use);
+  // const csrfMiddleware = new CsrfMiddleware();
+  // app.use(csrfMiddleware.use);
 
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
@@ -22,7 +27,7 @@ async function bootstrap() {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
@@ -38,8 +43,8 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.PORT ?? 4000;
-  await app.listen(port);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port, '0.0.0.0');
 
   console.log(`Application is running on: http://localhost:${port}`);
 }

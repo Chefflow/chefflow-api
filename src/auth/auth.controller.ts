@@ -8,6 +8,7 @@ import {
   UseGuards,
   Res,
   Req,
+  UseFilters,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { User } from '@prisma/client';
@@ -20,6 +21,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { UserEntity } from '../users/entities/user.entity';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { RefreshTokenExceptionFilter } from './filters/refresh-token-exception.filter';
 
 interface RequestWithCsrfToken extends Request {
   csrfToken?: string;
@@ -38,18 +40,20 @@ export class AuthController {
     accessToken: string,
     refreshToken: string,
   ) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
 
     res.cookie('Refresh', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
@@ -102,6 +106,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(JwtRefreshGuard)
+  @UseFilters(RefreshTokenExceptionFilter)
   @Get('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshTokens(
@@ -119,16 +124,26 @@ export class AuthController {
     return { message: 'Tokens refreshed' };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @CurrentUser() user: User,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    await this.authService.logout(user.username);
-    res.clearCookie('accessToken');
-    res.clearCookie('Refresh', { path: '/auth/refresh' });
+  async logout(@Res({ passthrough: true }) res: Response) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
+      path: '/',
+    });
+
+    res.clearCookie('Refresh', {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProduction ? 'lax' : 'none',
+      path: '/auth/refresh',
+    });
+
     return { message: 'Logged out successfully' };
   }
 

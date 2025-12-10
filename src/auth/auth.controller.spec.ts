@@ -117,21 +117,27 @@ describe('AuthController', () => {
       const res = mockResponse();
       const req: Partial<RequestWithUserAndRefreshToken> = {
         user: {
-          ...createMockUser({ username: 'user' }) as User,
+          ...(createMockUser({ username: 'user' }) as User),
           refreshToken: 'old-refresh-token',
         },
       };
       const tokens = {
         accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token'
+        refreshToken: 'new-refresh-token',
       };
       mockAuthService.refreshTokens.mockResolvedValue(tokens);
 
       // Act
-      await controller.refreshTokens(req as RequestWithUserAndRefreshToken, res);
+      await controller.refreshTokens(
+        req as RequestWithUserAndRefreshToken,
+        res,
+      );
 
       // Assert - verify service was called with correct params
-      expect(authService.refreshTokens).toHaveBeenCalledWith('user', 'old-refresh-token');
+      expect(authService.refreshTokens).toHaveBeenCalledWith(
+        'user',
+        'old-refresh-token',
+      );
 
       // Assert - verify access token cookie
       expect(res.cookie).toHaveBeenCalledWith(
@@ -264,7 +270,7 @@ describe('AuthController', () => {
     it('should return CSRF token from request when present', () => {
       // Arrange
       const req: Partial<RequestWithCsrfToken> = {
-        csrfToken: 'test-csrf-token-12345'
+        csrfToken: 'test-csrf-token-12345',
       };
 
       // Act
@@ -351,9 +357,7 @@ describe('AuthController', () => {
       await controller.googleAuthCallback(user, res);
 
       // Assert - verify redirect to custom URL
-      expect(res.redirect).toHaveBeenCalledWith(
-        `${customUrl}/auth/callback`,
-      );
+      expect(res.redirect).toHaveBeenCalledWith(`${customUrl}/auth/callback`);
 
       // Cleanup
       process.env.FRONTEND_URL = originalEnv;
@@ -368,7 +372,7 @@ describe('AuthController', () => {
 
       // Act & Assert
       await expect(
-        controller.refreshTokens(req as RequestWithUserAndRefreshToken, res)
+        controller.refreshTokens(req as RequestWithUserAndRefreshToken, res),
       ).rejects.toThrow('Invalid user or refresh token');
     });
 
@@ -376,12 +380,12 @@ describe('AuthController', () => {
       // Arrange
       const res = mockResponse();
       const req: Partial<RequestWithUserAndRefreshToken> = {
-        user: { ...createMockUser({ username: 'user' }) as User },
+        user: { ...(createMockUser({ username: 'user' }) as User) },
       };
 
       // Act & Assert
       await expect(
-        controller.refreshTokens(req as RequestWithUserAndRefreshToken, res)
+        controller.refreshTokens(req as RequestWithUserAndRefreshToken, res),
       ).rejects.toThrow('Invalid user or refresh token');
     });
 
@@ -390,18 +394,21 @@ describe('AuthController', () => {
       const res = mockResponse();
       const req: Partial<RequestWithUserAndRefreshToken> = {
         user: {
-          ...createMockUser({ username: 'user' }) as User,
+          ...(createMockUser({ username: 'user' }) as User),
           refreshToken: 'old-refresh-token',
         },
       };
       const tokens = {
         accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token'
+        refreshToken: 'new-refresh-token',
       };
       mockAuthService.refreshTokens.mockResolvedValue(tokens);
 
       // Act
-      const result = await controller.refreshTokens(req as RequestWithUserAndRefreshToken, res);
+      const result = await controller.refreshTokens(
+        req as RequestWithUserAndRefreshToken,
+        res,
+      );
 
       // Assert
       expect(result).toEqual({ message: 'Tokens refreshed' });
