@@ -1,22 +1,34 @@
-# Use node 22.20 and the alpine 3.21 base image (Mini OS)
-FROM node:22.20-alpine3.21
+# ============================================
+# Build Stage
+# ============================================
+FROM node:20-slim AS builder
 
-# Install pnpm globally (thi command is comming from the doc site)
-RUN npm install -g pnpm@latest-10
+# Install pnpm and OpenSSL (required by Prisma)
+RUN corepack enable && \
+    apt-get update && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create app directory and 
-WORKDIR app/
+WORKDIR /app
 
-# Copy package.json and package-lock.json files and install
-COPY package*.json .
-COPY pnpm-lock.yaml .
-RUN pnpm install
+# Copy pnpm configuration and dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma/
+
+# Install ALL dependencies (including devDependencies for build)
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
 COPY . .
 
 # Generate Prisma client and compile application
+<<<<<<< HEAD
 RUN pnpm prisma generate && pnpm build && \
     # Verify build output exists
     test -f dist/src/main.js || (echo "ERROR: Build failed - dist/src/main.js not found" && exit 1)
+=======
+RUN pnpm prisma generate && pnpm build
+>>>>>>> 8a4b258 (Revert "chore: update Dockerfile to use Node 22.20-alpine, streamline installation steps, and adjust Prisma configuration in prisma.config.ts")
 
 # ============================================
 # Runtime Stage
@@ -54,4 +66,8 @@ USER nestjs
 EXPOSE 3000
 
 # Start script: run migrations and start app
+<<<<<<< HEAD
 CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
+=======
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main"]
+>>>>>>> 8a4b258 (Revert "chore: update Dockerfile to use Node 22.20-alpine, streamline installation steps, and adjust Prisma configuration in prisma.config.ts")
