@@ -48,7 +48,7 @@ COPY --chown=nestjs:nestjs prisma ./prisma/
 RUN pnpm install --prod --frozen-lockfile
 
 # Copy generated Prisma client and build from previous stage
-COPY --chown=nestjs:nestjs --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
+COPY --chown=nestjs:nestjs --from=builder /app/node_modules ./node_modules
 COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
 
 # Change to non-root user
