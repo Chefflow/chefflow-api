@@ -66,4 +66,4 @@ USER nestjs
 EXPOSE 3000
 
 # Start script: run migrations and start app
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
