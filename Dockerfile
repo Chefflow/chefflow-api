@@ -1,62 +1,65 @@
-# ============================
-# Base: Node 20 Alpine
-# ============================
-FROM node:20-alpine AS base
+# ============================================
+# Build Stage
+# ============================================
+FROM node:20-slim AS builder
 
-RUN apk add --no-cache openssl libc6-compat && \
-    corepack enable && \
-    corepack prepare pnpm@10.19.0 --activate
-
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+# Install pnpm and OpenSSL (required by Prisma)
+RUN corepack enable && \
+    apt-get update && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# ============================
-# Dependencies
-# ============================
-FROM base AS deps
+# Copy pnpm configuration and dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma/
 
-COPY package.json pnpm-lock.yaml ./
-
+# Install ALL dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
 
-# ============================
-# Build
-# ============================
-FROM base AS build
-
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
-RUN pnpm exec prisma generate && \
-    pnpm build && \
-    pnpm prune --prod
+# Generate Prisma client and compile application
+RUN pnpm prisma generate && pnpm build && \
+    # Verify build output exists
+    test -f dist/src/main.js || (echo "ERROR: Build failed - dist/src/main.js not found" && exit 1)
 
-# ============================
-# Production
-# ============================
-FROM node:20-alpine AS production
+# ============================================
+# Runtime Stage
+# ============================================
+FROM node:20-slim AS runtime
 
-RUN apk add --no-cache openssl libc6-compat netcat-openbsd && \
-    addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
+# Install pnpm and OpenSSL (Prisma needs it in runtime)
+RUN corepack enable && \
+    apt-get update && \
+    apt-get install -y openssl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Create non-root user for security with home directory
+RUN groupadd -r nestjs && useradd -r -g nestjs -m -d /home/nestjs nestjs && \
+    chown -R nestjs:nestjs /home/nestjs
 
-COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=build --chown=nestjs:nodejs /app/node_modules ./node_modules
-COPY --from=build --chown=nestjs:nodejs /app/package.json ./package.json
-COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
-COPY --from=build --chown=nestjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+# Copy configuration files
+COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=nestjs:nestjs prisma.config.ts ./
+COPY --chown=nestjs:nestjs prisma ./prisma/
 
-COPY --chown=nestjs:nodejs docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
+# Install ONLY production dependencies
+RUN pnpm install --prod --frozen-lockfile
 
+# Copy generated Prisma client and build from previous stage
+COPY --chown=nestjs:nestjs --from=builder /app/node_modules ./node_modules
+COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
+
+# Change to non-root user
 USER nestjs
 
-EXPOSE 4000
+# Expose application port
+EXPOSE 3000
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# Start script: run migrations and start app
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
