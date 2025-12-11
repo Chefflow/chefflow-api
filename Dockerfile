@@ -22,7 +22,9 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma client and compile application
-RUN pnpm prisma generate && pnpm build
+RUN pnpm prisma generate && pnpm build && \
+    # Verify build output exists
+    test -f dist/src/main.js || (echo "ERROR: Build failed - dist/src/main.js not found" && exit 1)
 
 # ============================================
 # Runtime Stage
@@ -60,4 +62,4 @@ USER nestjs
 EXPOSE 3000
 
 # Start script: run migrations and start app
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
