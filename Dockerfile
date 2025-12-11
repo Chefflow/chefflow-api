@@ -37,8 +37,9 @@ RUN corepack enable && \
 
 WORKDIR /app
 
-# Create non-root user for security
-RUN groupadd -r nestjs && useradd -r -g nestjs nestjs
+# Create non-root user for security with home directory
+RUN groupadd -r nestjs && useradd -r -g nestjs -m -d /home/nestjs nestjs && \
+    chown -R nestjs:nestjs /home/nestjs
 
 # Copy configuration files
 COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
