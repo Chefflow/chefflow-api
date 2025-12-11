@@ -66,8 +66,4 @@ USER nestjs
 EXPOSE 3000
 
 # Start script: run migrations and start app
-<<<<<<< HEAD
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
-=======
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main"]
->>>>>>> 8a4b258 (Revert "chore: update Dockerfile to use Node 22.20-alpine, streamline installation steps, and adjust Prisma configuration in prisma.config.ts")
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
