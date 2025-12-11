@@ -43,6 +43,7 @@ RUN groupadd -r nestjs && useradd -r -g nestjs -m -d /home/nestjs nestjs && \
 
 # Copy configuration files
 COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=nestjs:nestjs prisma.config.ts ./
 COPY --chown=nestjs:nestjs prisma ./prisma/
 
 # Install ONLY production dependencies
