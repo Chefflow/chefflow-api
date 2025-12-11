@@ -1,24 +1,16 @@
-# ============================================
-# Build Stage
-# ============================================
-FROM node:20-slim AS builder
+# Use node 22.20 and the alpine 3.21 base image (Mini OS)
+FROM node:22.20-alpine3.21
 
-# Install pnpm and OpenSSL (required by Prisma)
-RUN corepack enable && \
-    apt-get update && \
-    apt-get install -y openssl && \
-    rm -rf /var/lib/apt/lists/*
+# Install pnpm globally (thi command is comming from the doc site)
+RUN npm install -g pnpm@latest-10
 
-WORKDIR /app
+# Create app directory and 
+WORKDIR app/
 
-# Copy pnpm configuration and dependencies
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY prisma ./prisma/
-
-# Install ALL dependencies (including devDependencies for build)
-RUN pnpm install --frozen-lockfile
-
-# Copy source code
+# Copy package.json and package-lock.json files and install
+COPY package*.json .
+COPY pnpm-lock.yaml .
+RUN pnpm install
 COPY . .
 
 # Generate Prisma client and compile application
