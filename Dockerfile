@@ -22,9 +22,13 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Generate Prisma client and compile application
+<<<<<<< HEAD
 RUN pnpm prisma generate && pnpm build && \
     # Verify build output exists
     test -f dist/src/main.js || (echo "ERROR: Build failed - dist/src/main.js not found" && exit 1)
+=======
+RUN pnpm prisma generate && pnpm build
+>>>>>>> 8a4b258 (Revert "chore: update Dockerfile to use Node 22.20-alpine, streamline installation steps, and adjust Prisma configuration in prisma.config.ts")
 
 # ============================================
 # Runtime Stage
