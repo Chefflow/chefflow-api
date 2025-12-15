@@ -10,14 +10,16 @@ model User {
   id                 Int          @id @default(autoincrement())
   username           String       @unique
   email              String       @unique
-  passwordHash       String?      
+  passwordHash       String?
   hashedRefreshToken String?
   name               String?
   image              String?
   provider           AuthProvider @default(LOCAL)
-  providerId         String?      
+  providerId         String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+
+  recipes Recipe[]
 
   @@index([provider, providerId])
 }
@@ -27,4 +29,65 @@ enum AuthProvider {
   GOOGLE
   APPLE
   GITHUB
+}
+
+model Recipe {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  description String?
+  servings    Int      @default(1)
+  prepTime    Int?
+  cookTime    Int?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+  steps       RecipeStep[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model RecipeIngredient {
+  id             Int     @id @default(autoincrement())
+  recipeId       Int
+  ingredientName String
+  quantity       Float
+  unit           Unit
+  notes          String?
+  order          Int     @default(0)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+  @@index([ingredientName])
+}
+
+model RecipeStep {
+  id          Int    @id @default(autoincrement())
+  recipeId    Int
+  stepNumber  Int
+  instruction String @db.Text
+  duration    Int?
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, stepNumber])
+  @@index([recipeId])
+}
+
+enum Unit {
+  GRAM
+  KILOGRAM
+  MILLILITER
+  LITER
+  TEASPOON
+  TABLESPOON
+  CUP
+  UNIT
+  PINCH
+  TO_TASTE
 }
