@@ -1,7 +1,7 @@
 # ============================================
 # Build Stage
 # ============================================
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 
 # Install pnpm and OpenSSL (required by Prisma)
 RUN corepack enable && \
@@ -29,7 +29,7 @@ RUN pnpm prisma generate && pnpm build && \
 # ============================================
 # Runtime Stage
 # ============================================
-FROM node:20-slim AS runtime
+FROM node:24-slim AS runtime
 
 # Install pnpm and OpenSSL (Prisma needs it in runtime)
 RUN corepack enable && \
