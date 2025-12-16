@@ -1,20 +1,25 @@
-/*
-  Warnings:
+-- CreateEnum
+CREATE TYPE "AuthProvider" AS ENUM ('LOCAL', 'GOOGLE', 'APPLE', 'GITHUB');
 
-  - The primary key for the `User` table will be changed. If it partially fails, the table could be left without primary key constraint.
-  - A unique constraint covering the columns `[username]` on the table `User` will be added. If there are existing duplicate values, this will fail.
-
-*/
 -- CreateEnum
 CREATE TYPE "Unit" AS ENUM ('GRAM', 'KILOGRAM', 'MILLILITER', 'LITER', 'TEASPOON', 'TABLESPOON', 'CUP', 'UNIT', 'PINCH', 'TO_TASTE');
 
--- DropIndex
-DROP INDEX "idx_user_created_at";
+-- CreateTable
+CREATE TABLE "User" (
+    "id" SERIAL NOT NULL,
+    "username" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "passwordHash" TEXT,
+    "hashedRefreshToken" TEXT,
+    "name" TEXT,
+    "image" TEXT,
+    "provider" "AuthProvider" NOT NULL DEFAULT 'LOCAL',
+    "providerId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- AlterTable
-ALTER TABLE "User" DROP CONSTRAINT "User_pkey",
-ADD COLUMN     "id" SERIAL NOT NULL,
-ADD CONSTRAINT "User_pkey" PRIMARY KEY ("id");
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Recipe" (
@@ -57,6 +62,15 @@ CREATE TABLE "RecipeStep" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "User_provider_providerId_idx" ON "User"("provider", "providerId");
+
+-- CreateIndex
 CREATE INDEX "Recipe_userId_idx" ON "Recipe"("userId");
 
 -- CreateIndex
@@ -74,9 +88,6 @@ CREATE INDEX "RecipeStep_recipeId_idx" ON "RecipeStep"("recipeId");
 -- CreateIndex
 CREATE UNIQUE INDEX "RecipeStep_recipeId_stepNumber_key" ON "RecipeStep"("recipeId", "stepNumber");
 
--- CreateIndex
-CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
-
 -- AddForeignKey
 ALTER TABLE "Recipe" ADD CONSTRAINT "Recipe_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -85,6 +96,3 @@ ALTER TABLE "RecipeIngredient" ADD CONSTRAINT "RecipeIngredient_recipeId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "RecipeStep" ADD CONSTRAINT "RecipeStep_recipeId_fkey" FOREIGN KEY ("recipeId") REFERENCES "Recipe"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- RenameIndex
-ALTER INDEX "idx_user_provider_lookup" RENAME TO "User_provider_providerId_idx";
