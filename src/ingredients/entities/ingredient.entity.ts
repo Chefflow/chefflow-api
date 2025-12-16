@@ -1,4 +1,4 @@
-import { Unit } from '@prisma/client';
+import type { Unit } from '@prisma/client';
 
 export class IngredientEntity {
   id!: number;
