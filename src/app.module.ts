@@ -7,7 +7,7 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-import { IngredientsModule } from './ingredients/ingredients.module';
+import { RecipesModule } from './recipes/recipes.module';
 
 @Module({
   imports: [
@@ -23,7 +23,7 @@ import { IngredientsModule } from './ingredients/ingredients.module';
     PrismaModule,
     UsersModule,
     AuthModule,
-    IngredientsModule,
+    RecipesModule,
   ],
   controllers: [AppController],
   providers: [
