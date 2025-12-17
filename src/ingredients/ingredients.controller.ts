@@ -12,7 +12,6 @@ import {
 import { IngredientsService } from './ingredients.service';
 import { CreateIngredientDto } from './dto/create-ingredient.dto';
 import { UpdateIngredientDto } from './dto/update-ingredient.dto';
-import { RecipeIngredient } from '@prisma/client';
 
 @Controller('ingredients')
 export class IngredientsController {
