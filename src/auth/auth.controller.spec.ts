@@ -90,7 +90,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           httpOnly: true,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'lax',
+          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
       );
 
@@ -101,7 +101,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           httpOnly: true,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'lax',
+          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
       );
 
@@ -165,30 +165,37 @@ describe('AuthController', () => {
     it('should clear authentication cookies when user logs out', async () => {
       // Arrange
       const res = mockResponse();
-      const user = createMockUser({ username: 'user' }) as User;
-      mockAuthService.logout.mockResolvedValue(undefined);
 
       // Act
-      await controller.logout(user, res);
+      await controller.logout(res);
 
-      // Assert - verify service was called
-      expect(authService.logout).toHaveBeenCalledWith('user');
-
-      // Assert - verify cookies were cleared
-      expect(res.clearCookie).toHaveBeenCalledWith('accessToken');
-      expect(res.clearCookie).toHaveBeenCalledWith('Refresh', {
-        path: REFRESH_TOKEN_PATH,
-      });
+      // Assert - verify cookies were cleared with correct options
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        'accessToken',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'none',
+          path: '/',
+        }),
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        'Refresh',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'none',
+          path: REFRESH_TOKEN_PATH,
+        }),
+      );
     });
 
     it('should return success message after logout', async () => {
       // Arrange
       const res = mockResponse();
-      const user = createMockUser({ username: 'user' }) as User;
-      mockAuthService.logout.mockResolvedValue(undefined);
 
       // Act
-      const result = await controller.logout(user, res);
+      const result = await controller.logout(res);
 
       // Assert
       expect(result).toEqual({ message: 'Logged out successfully' });
@@ -227,7 +234,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           httpOnly: true,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'lax',
+          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
       );
 
@@ -238,7 +245,7 @@ describe('AuthController', () => {
         expect.objectContaining({
           httpOnly: true,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'lax',
+          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
       );
 
@@ -324,7 +331,7 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          sameSite: 'lax',
+          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
       );
       expect(res.cookie).toHaveBeenCalledWith(
