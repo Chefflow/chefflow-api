@@ -26,25 +26,6 @@ RUN pnpm prisma generate && \
     test -f dist/src/main.js || (echo "Build failed" && exit 1)
 
 # ============================================
-# Dependencies Stage
-# ============================================
-FROM node:24-slim AS dependencies
-
-RUN corepack enable
-
-WORKDIR /app
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY prisma ./prisma/
-
-# Install production deps
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy Prisma client generado del builder (necesario para las migraciones)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# ============================================
 # Runtime Stage
 # ============================================
 FROM node:24-slim AS runtime
@@ -62,13 +43,16 @@ RUN groupadd -r nestjs && \
     useradd -r -g nestjs -m -d /home/nestjs nestjs && \
     chown -R nestjs:nestjs /app
 
-# Copy production dependencies from dependencies stage
-COPY --chown=nestjs:nestjs --from=dependencies /app/node_modules ./node_modules
+# Copy package files
+COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=nestjs:nestjs prisma ./prisma/
 
-# Copy build output and prisma schema from builder
+# Install ONLY production deps
+RUN pnpm install --prod --frozen-lockfile
+
+# Copy Prisma client and build from builder
+COPY --chown=nestjs:nestjs --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
 COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
-COPY --chown=nestjs:nestjs --from=builder /app/package.json ./
-COPY --chown=nestjs:nestjs --from=builder /app/prisma ./prisma
 
 USER nestjs
 
