@@ -37,9 +37,10 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
 
-# Install ONLY production deps + generate Prisma client
+# Install production deps + prisma CLI separately
 RUN pnpm install --prod --frozen-lockfile && \
-    pnpm prisma generate
+    pnpm add -g prisma && \
+    prisma generate
 
 # ============================================
 # Runtime Stage
@@ -65,13 +66,8 @@ COPY --chown=nestjs:nestjs --from=dependencies /app/node_modules ./node_modules
 # Copy build output from builder
 COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
 COPY --chown=nestjs:nestjs --from=builder /app/package.json ./
+COPY --chown=nestjs:nestjs --from=builder /app/prisma ./prisma
 
 USER nestjs
 
 EXPOSE 3000
-
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start app
-CMD ["node", "dist/src/main.js"]
