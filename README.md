@@ -5,28 +5,28 @@ A production-ready NestJS backend application with JWT and OAuth2 authentication
 ## 🚀 Technology Stack
 
 - **Framework**: NestJS 11.x
-- **Runtime**: Node.js 20+
-- **Package Manager**: pnpm 10.16.1
+- **Runtime**: Node.js 24+
+- **Package Manager**: pnpm 10+
 - **Database**: PostgreSQL 16
-- **ORM**: Prisma 7.0.1
-- **Language**: TypeScript 5.7+
+- **ORM**: Prisma 7.x
+- **Language**: TypeScript 5.9+
 - **Authentication**: JWT + Google OAuth2
-- **Containerization**: Docker & Docker Compose
+- **Containerization**: Docker & Docker Compose (3-stage build)
 
 ## ✨ Features
 
 - **Hybrid Authentication System**: Traditional JWT (username/password) + Google OAuth2
 - **Account Linking**: Seamlessly link OAuth accounts to existing local accounts
 - **Health Checks**: Comprehensive liveness and readiness probes for production deployments
-- **Security**: Helmet, CORS, rate limiting, and input validation
+- **Security**: Helmet, CORS, rate limiting, input validation, and non-root container execution
 - **Hot-Reload Development**: Docker-based development environment with instant code updates
-- **Production-Ready**: Multi-stage Docker builds with optimized images
-- **Comprehensive Testing**: 139 tests (117 unit + 22 e2e) ensuring reliability
+- **Production-Ready**: Optimized 3-stage Docker build with dumb-init for proper signal handling
+- **Comprehensive Testing**: 175+ tests ensuring reliability
 
 ## 📋 Prerequisites
 
 - [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) (required)
-- [Node.js 20+](https://nodejs.org/) (optional, for local development)
+- [Node.js 24+](https://nodejs.org/) (optional, for local development)
 - [pnpm 10+](https://pnpm.io/) (optional, for local development)
 
 ## 🛠️ Quick Start
@@ -59,7 +59,7 @@ A production-ready NestJS backend application with JWT and OAuth2 authentication
 
 That's it! The API is now running on **http://localhost:4000** with hot-reload enabled.
 
-> 📘 **For detailed Docker workflows, troubleshooting, and best practices, see [DOCKER.md](./DOCKER.md)**
+> 📘 **For detailed development patterns and best practices, see [CLAUDE.md](./CLAUDE.md)**
 
 ## 🔄 Development Workflows
 
@@ -87,11 +87,11 @@ pnpm run start:dev  # Port 4000
 ### Production Testing
 
 ```bash
-# Test production build locally (port 4000)
+# Test production build locally (port 3000)
 pnpm run docker:up
 ```
 
-> 📘 **See [DOCKER.md](./DOCKER.md) for detailed workflows, dependency management, and troubleshooting**
+> 📘 **See [CLAUDE.md](./CLAUDE.md) for Docker deployment details and production best practices**
 
 ---
 
@@ -128,7 +128,7 @@ pnpm run format                  # Format code
 pnpm run lint                    # Lint and fix
 ```
 
-> 📘 **For complete command reference and Docker operations, see [DOCKER.md](./DOCKER.md)**
+> 📘 **For complete command reference and deployment guidance, see [CLAUDE.md](./CLAUDE.md)**
 
 ## 🏥 API Endpoints
 
@@ -177,29 +177,21 @@ chefflow-api/
 ├── src/
 │   ├── auth/                  # Authentication module (JWT + OAuth)
 │   ├── users/                 # User management module
-│   ├── prisma/                # Prisma service
+│   ├── recipes/               # Recipe management module
+│   ├── prisma/                # Prisma service (global)
 │   ├── main.ts                # Application entry point
 │   └── app.module.ts          # Root module
 ├── test/                      # Unit and e2e tests
 ├── .env                       # Environment variables (create from .env.example)
 ├── docker-compose.yml         # Docker services configuration
-├── Dockerfile                 # Multi-stage Docker build
-├── CLAUDE.md                  # Development guide for Claude Code
-├── DOCKER.md                  # Comprehensive Docker documentation
+├── Dockerfile                 # 3-stage production Docker build
+├── CLAUDE.md                  # Development guide and deployment best practices
 └── package.json               # Dependencies and scripts
 ```
 
 ## 🔧 Troubleshooting
 
-Having issues? Check [DOCKER.md](./DOCKER.md) for comprehensive troubleshooting covering:
-
-- **New dependencies not installing** (pnpm-cache issue) - Most common!
-- Container restarts and crashes
-- Database connection problems
-- Hot-reload not working
-- Migration errors
-- Port conflicts
-- And more...
+Common issues and quick fixes:
 
 ### Quick Fixes
 
@@ -217,10 +209,10 @@ docker-compose logs postgres
 
 ## 📚 Documentation
 
-- **[DOCKER.md](./DOCKER.md)** - Complete Docker guide with workflows and troubleshooting
-- **[CLAUDE.md](./CLAUDE.md)** - Development guide for Claude Code users
+- **[CLAUDE.md](./CLAUDE.md)** - Comprehensive development guide, Docker deployment, and best practices
 - **[NestJS Docs](https://docs.nestjs.com)** - Framework documentation
 - **[Prisma Docs](https://www.prisma.io/docs)** - ORM documentation
+- **[Docker Docs](https://docs.docker.com/)** - Container documentation
 
 ## 🧪 Testing
 
