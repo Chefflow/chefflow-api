@@ -3,7 +3,6 @@
 # ============================================
 FROM node:24-slim AS builder
 
-# Install pnpm and OpenSSL (required by Prisma)
 RUN corepack enable && \
     apt-get update && \
     apt-get install -y openssl && \
@@ -11,55 +10,68 @@ RUN corepack enable && \
 
 WORKDIR /app
 
-# Copy pnpm configuration and dependencies
+# Copy dependency files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
 
-# Install ALL dependencies (including devDependencies for build)
+# Install all deps (needed for build)
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source
 COPY . .
 
-# Generate Prisma client and compile application
-RUN pnpm prisma generate && pnpm build && \
-    # Verify build output exists
-    test -f dist/src/main.js || (echo "ERROR: Build failed - dist/src/main.js not found" && exit 1)
+# Generate Prisma client and build
+RUN pnpm prisma generate && \
+    pnpm build && \
+    test -f dist/src/main.js || (echo "Build failed" && exit 1)
+
+# ============================================
+# Dependencies Stage
+# ============================================
+FROM node:24-slim AS dependencies
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma/
+
+# Install ONLY production deps + generate Prisma client
+RUN pnpm install --prod --frozen-lockfile && \
+    pnpm prisma generate
 
 # ============================================
 # Runtime Stage
 # ============================================
 FROM node:24-slim AS runtime
 
-# Install pnpm and OpenSSL (Prisma needs it in runtime)
+# Install dumb-init for proper signal handling
 RUN corepack enable && \
     apt-get update && \
-    apt-get install -y openssl && \
+    apt-get install -y openssl dumb-init && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create non-root user for security with home directory
-RUN groupadd -r nestjs && useradd -r -g nestjs -m -d /home/nestjs nestjs && \
-    chown -R nestjs:nestjs /home/nestjs
+# Create non-root user
+RUN groupadd -r nestjs && \
+    useradd -r -g nestjs -m -d /home/nestjs nestjs && \
+    chown -R nestjs:nestjs /app
 
-# Copy configuration files
-COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY --chown=nestjs:nestjs prisma.config.ts ./
-COPY --chown=nestjs:nestjs prisma ./prisma/
+# Copy production dependencies from dependencies stage
+COPY --chown=nestjs:nestjs --from=dependencies /app/node_modules ./node_modules
 
-# Install ONLY production dependencies
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy generated Prisma client and build from previous stage
-COPY --chown=nestjs:nestjs --from=builder /app/node_modules ./node_modules
+# Copy build output from builder
 COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
+COPY --chown=nestjs:nestjs --from=builder /app/package.json ./
 
-# Change to non-root user
 USER nestjs
 
-# Expose application port
 EXPOSE 3000
 
-# Start script: run migrations and start app
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/src/main.js"]
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start app
+CMD ["node", "dist/src/main.js"]
