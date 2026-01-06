@@ -306,6 +306,66 @@ Two endpoints for monitoring:
 - `GET /health` - Liveness probe (app running)
 - `GET /ready` - Readiness probe (app + database ready)
 
+## Docker & Deployment
+
+### Multi-Stage Docker Build
+
+The Dockerfile uses an optimized 3-stage build process for production deployments:
+
+**Stage 1 - Builder** (`FROM node:24-slim AS builder`):
+- Installs all dependencies (dev + production)
+- Copies source code
+- Generates Prisma Client
+- Compiles TypeScript to JavaScript
+- Validates build output exists: `dist/src/main.js`
+
+**Stage 2 - Dependencies** (`FROM node:24-slim AS dependencies`):
+- Installs ONLY production dependencies
+- Generates Prisma Client for production
+- No dev dependencies (TypeScript, Jest, etc.)
+- Smaller footprint for final image
+
+**Stage 3 - Runtime** (`FROM node:24-slim AS runtime`):
+- Minimal production image
+- Installs dumb-init for proper signal handling
+- Creates non-root user (`nestjs:nestjs`)
+- Copies only production dependencies and compiled code
+- Uses `ENTRYPOINT ["dumb-init", "--"]` for graceful shutdown
+
+**Key Benefits**:
+- Smaller final image (~450-550MB vs ~800MB+ single-stage)
+- Better security (no dev tools in production)
+- Faster rebuilds (layer caching optimization)
+- Proper signal handling for VPS/container orchestration
+
+### Production Deployment Best Practices
+
+**Pre-Deployment Checklist**:
+1. Run database migrations BEFORE deploying new containers
+2. Verify all required environment variables are set
+3. Test build locally: `pnpm run docker:build && pnpm run docker:up`
+4. Ensure health check endpoints are accessible
+
+**Database Migrations Strategy**:
+- Run migrations separately before container deployment
+- Use: `npx prisma migrate deploy` (production-safe)
+- Never run migrations automatically on container startup (risk of race conditions)
+- Migrations are forward-only (no automatic rollback)
+
+**Resource Recommendations for VPS**:
+- Minimum: 512MB RAM, 1 CPU core
+- Recommended: 1GB RAM, 2 CPU cores
+- Monitor with health checks: `/health` (liveness), `/ready` (readiness)
+
+**Environment Variables for Production**:
+```bash
+NODE_ENV=production          # Affects cookie SameSite and logging
+DATABASE_URL=postgresql://...
+JWT_SECRET=<strong-secret>
+JWT_REFRESH_SECRET=<strong-secret>
+ALLOWED_ORIGINS=https://your-domain.com
+```
+
 ## Code Organization
 
 ```
@@ -333,6 +393,7 @@ prisma/
 └── migrations/             # Migration history
 
 prisma.config.ts            # Prisma 7 configuration (root level)
+Dockerfile                   # 3-stage production build
 test/                        # E2E tests
 ```
 
