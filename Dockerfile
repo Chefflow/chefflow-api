@@ -1,7 +1,7 @@
 # ============================================
 # STAGE 1: Builder
 # ============================================
-FROM node:24-alpine AS builder
+FROM node:24-slim AS builder
 
 RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -23,7 +23,7 @@ RUN pnpm prune --production
 # ============================================
 # STAGE 2: Runtime
 # ============================================
-FROM node:24-alpine
+FROM node:24-slim
 
 RUN apk add --no-cache openssl dumb-init
 RUN corepack enable && corepack prepare pnpm@latest --activate
