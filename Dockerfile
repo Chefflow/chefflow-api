@@ -16,7 +16,6 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 RUN pnpm prisma generate && pnpm build
-RUN pnpm prune --production
 
 # ============================================
 # STAGE 2: Runtime
@@ -28,13 +27,12 @@ RUN apt-get update && apt-get install -y openssl dumb-init && rm -rf /var/lib/ap
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN groupadd -r nestjs && useradd -r -g nestjs nestjs
 
-COPY --from=builder --chown=nestjs:nestjs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nestjs /app/node_modules ./node_modules
-COPY --from=builder --chown=nestjs:nestjs /app/prisma ./prisma
-COPY --from=builder --chown=nestjs:nestjs /app/package.json ./package.json
-COPY --from=builder --chown=nestjs:nestjs /app/entrypoint.sh ./entrypoint.sh
+RUN groupadd -r nestjs && useradd -r -g nestjs -m -d /home/nestjs nestjs
+ENV HOME=/home/nestjs
+
+
+COPY --from=builder --chown=nestjs:nestjs /app /app
 
 RUN chmod +x ./entrypoint.sh
 
