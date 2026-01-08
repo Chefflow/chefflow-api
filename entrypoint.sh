@@ -3,10 +3,14 @@ set -e
 
 echo "🚀 Starting Chefflow API..."
 
-if ! ./node_modules/.bin/prisma migrate deploy; then
-  echo "❌ Prisma migrations failed"
-  exit 1
+
+echo "📦 Running Prisma migrations..."
+if ! npx prisma migrate deploy; then
+  echo "❌ Migrations failed, retrying with direct path..."
+  ./node_modules/.bin/prisma migrate deploy
 fi
 
 echo "✅ Migrations applied"
+
+echo "🎯 Starting production server..."
 exec node dist/main.js
