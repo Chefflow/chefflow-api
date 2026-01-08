@@ -10,6 +10,10 @@ RUN corepack enable \
 
 WORKDIR /app
 
+# Prisma v7 requires DATABASE_URL at generate time
+ARG DATABASE_URL=postgresql://user:pass@localhost:5432/db
+ENV DATABASE_URL=$DATABASE_URL
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
 
