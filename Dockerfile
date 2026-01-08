@@ -1,55 +1,50 @@
 # ============================================
-# Build stage
+# STAGE 1: Builder
 # ============================================
-FROM node:24-slim AS builder
+FROM node:24-alpine AS builder
 
-RUN corepack enable \
-  && apt-get update \
-  && apt-get install -y openssl \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl libc6-compat
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Prisma v7 requires DATABASE_URL at generate time
-ARG DATABASE_URL=postgresql://user:pass@localhost:5432/db
-ENV DATABASE_URL=$DATABASE_URL
-
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
 COPY prisma ./prisma/
+
 
 RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm prisma generate \
-  && pnpm build \
-  && test -f dist/src/main.js || (echo "❌ Build failed" && exit 1)
+RUN pnpm prisma generate && pnpm build
+
+RUN pnpm prune --production
 
 # ============================================
-# Runtime stage
+# STAGE 2: Runtime
 # ============================================
-FROM node:24-slim
+FROM node:24-alpine
 
-RUN corepack enable \
-  && apt-get update \
-  && apt-get install -y dumb-init \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl dumb-init
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN groupadd -r nestjs \
-  && useradd -r -g nestjs nestjs
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nestjs
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nestjs:nodejs /app/entrypoint.sh ./entrypoint.sh
 
-RUN chown -R nestjs:nestjs /app
+RUN chmod +x ./entrypoint.sh
+
 USER nestjs
 
 EXPOSE 3000
 
-ENTRYPOINT ["dumb-init", "--", "./entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+CMD ["./entrypoint.sh"]
