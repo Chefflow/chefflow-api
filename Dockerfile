@@ -1,65 +1,46 @@
 # ============================================
-# Build Stage
+# Build stage
 # ============================================
 FROM node:24-slim AS builder
 
-RUN corepack enable && \
-    apt-get update && \
-    apt-get install -y openssl && \
-    rm -rf /var/lib/apt/lists/*
+RUN corepack enable \
+  && apt-get update \
+  && apt-get install -y openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy dependency files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
 
-# Install all deps (needed for build)
+    # Instalamos deps completas (build + prisma)
 RUN pnpm install --frozen-lockfile
 
-# Copy source
 COPY . .
 
-# Generate Prisma client and build
-RUN pnpm prisma generate && \
-    pnpm build && \
-    test -f dist/src/main.js || (echo "Build failed" && exit 1)
+# Prisma client + build
+RUN pnpm prisma generate \
+  && pnpm build \
+  && test -f dist/src/main.js || (echo "❌ Build failed" && exit 1)
 
 # ============================================
-# Runtime Stage
+# Runtime stage (distroless)
 # ============================================
-FROM node:24-slim AS runtime
-
-# Install dumb-init for proper signal handling
-RUN corepack enable && \
-    apt-get update && \
-    apt-get install -y openssl dumb-init && \
-    rm -rf /var/lib/apt/lists/*
+FROM gcr.io/distroless/nodejs:24
 
 WORKDIR /app
 
-# Create non-root user
-RUN groupadd -r nestjs && \
-    useradd -r -g nestjs -m -d /home/nestjs nestjs && \
-    chown -R nestjs:nestjs /app
+ENV NODE_ENV=production
 
-# Copy package files
-COPY --chown=nestjs:nestjs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY --chown=nestjs:nestjs prisma ./prisma/
+# Copiamos solo lo necesario para runtime
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-# Install ONLY production deps
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy Prisma client and build from builder
-COPY --chown=nestjs:nestjs --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
-COPY --chown=nestjs:nestjs --from=builder /app/dist ./dist
-
-USER nestjs
+USER nonroot
 
 EXPOSE 3000
 
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start app
-CMD ["node", "dist/src/main.js"]
+ENTRYPOINT ["./entrypoint.sh"]
