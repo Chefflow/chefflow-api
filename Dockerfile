@@ -16,6 +16,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 RUN pnpm prisma generate && pnpm build
+RUN ls -R dist
 
 # ============================================
 # STAGE 2: Runtime
