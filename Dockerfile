@@ -13,34 +13,39 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY prisma ./prisma/
 
-    # Instalamos deps completas (build + prisma)
 RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# Prisma client + build
 RUN pnpm prisma generate \
   && pnpm build \
   && test -f dist/src/main.js || (echo "❌ Build failed" && exit 1)
 
 # ============================================
-# Runtime stage (distroless)
+# Runtime stage
 # ============================================
-FROM gcr.io/distroless/nodejs:24
+FROM node:24-slim
+
+RUN corepack enable \
+  && apt-get update \
+  && apt-get install -y dumb-init \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-# Copiamos solo lo necesario para runtime
+RUN groupadd -r nestjs \
+  && useradd -r -g nestjs nestjs
+
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 
-USER nonroot
+RUN chown -R nestjs:nestjs /app
+USER nestjs
 
 EXPOSE 3000
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["dumb-init", "--", "./entrypoint.sh"]
