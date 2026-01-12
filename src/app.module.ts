@@ -8,6 +8,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RecipesModule } from './recipes/recipes.module';
+import { RecipeStepsModule } from './recipe-steps/recipe-steps.module';
+import { RecipeIngredientsModule } from './recipe-ingredients/recipe-ingredients.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { RecipesModule } from './recipes/recipes.module';
     UsersModule,
     AuthModule,
     RecipesModule,
+    RecipeStepsModule,
+    RecipeIngredientsModule,
   ],
   controllers: [AppController],
   providers: [
