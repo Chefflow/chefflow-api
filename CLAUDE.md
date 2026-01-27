@@ -59,7 +59,9 @@ The application follows NestJS modular architecture with clear separation of con
 **Core Modules:**
 - `AuthModule` - Handles authentication (JWT + OAuth2), token management, account linking
 - `UsersModule` - User management and CRUD operations
-- `RecipesModule` - Recipe management with ingredients and steps (CRUD operations)
+- `RecipesModule` - Recipe CRUD operations (base recipe data)
+- `RecipeIngredientsModule` - Nested ingredient management (POST/PATCH/DELETE on `/recipes/:recipeId/ingredients`)
+- `RecipeStepsModule` - Nested step management (POST/PATCH/DELETE on `/recipes/:recipeId/steps`)
 - `PrismaModule` - Global database service (@Global decorator)
 - `AppModule` - Root module with global guards and configuration
 
@@ -310,33 +312,29 @@ Two endpoints for monitoring:
 
 ### Multi-Stage Docker Build
 
-The Dockerfile uses an optimized 3-stage build process for production deployments:
+The Dockerfile uses an optimized 2-stage build process for production deployments:
 
 **Stage 1 - Builder** (`FROM node:24-slim AS builder`):
 - Installs all dependencies (dev + production)
-- Copies source code
+- Copies source code and Prisma schema
 - Generates Prisma Client
 - Compiles TypeScript to JavaScript
 - Validates build output exists: `dist/src/main.js`
 
-**Stage 2 - Dependencies** (`FROM node:24-slim AS dependencies`):
-- Installs ONLY production dependencies
-- Generates Prisma Client for production
-- No dev dependencies (TypeScript, Jest, etc.)
-- Smaller footprint for final image
-
-**Stage 3 - Runtime** (`FROM node:24-slim AS runtime`):
+**Stage 2 - Runtime** (`FROM node:24-slim`):
 - Minimal production image
 - Installs dumb-init for proper signal handling
 - Creates non-root user (`nestjs:nestjs`)
-- Copies only production dependencies and compiled code
+- Copies entire `/app` from builder (includes node_modules and compiled code)
 - Uses `ENTRYPOINT ["dumb-init", "--"]` for graceful shutdown
+- Runs `entrypoint.sh` which executes migrations and starts the app
 
 **Key Benefits**:
-- Smaller final image (~450-550MB vs ~800MB+ single-stage)
-- Better security (no dev tools in production)
+- Better security (no dev tools in production, runs as non-root user)
 - Faster rebuilds (layer caching optimization)
-- Proper signal handling for VPS/container orchestration
+- Proper signal handling for VPS/container orchestration with dumb-init
+
+**Important Note**: The current `entrypoint.sh` runs migrations automatically on startup. For production with multiple replicas, consider running migrations separately before deployment to avoid race conditions.
 
 ### Production Deployment Best Practices
 
@@ -347,9 +345,12 @@ The Dockerfile uses an optimized 3-stage build process for production deployment
 4. Ensure health check endpoints are accessible
 
 **Database Migrations Strategy**:
-- Run migrations separately before container deployment
-- Use: `npx prisma migrate deploy` (production-safe)
-- Never run migrations automatically on container startup (risk of race conditions)
+- Current setup: `entrypoint.sh` runs migrations automatically on startup
+- For single-instance deployments: Current approach is fine
+- For multi-replica production: Run migrations separately before deployment
+  - Use: `npx prisma migrate deploy` (production-safe, no prompts)
+  - Remove migration logic from `entrypoint.sh`
+  - Prevents race conditions when multiple containers start simultaneously
 - Migrations are forward-only (no automatic rollback)
 
 **Resource Recommendations for VPS**:
@@ -370,31 +371,46 @@ ALLOWED_ORIGINS=https://your-domain.com
 
 ```
 src/
-├── auth/                    # Authentication module
-│   ├── decorators/         # @Public(), @CurrentUser()
-│   ├── dto/                # Login, Register, OAuth DTOs
-│   ├── filters/            # Exception filters for auth
-│   ├── guards/             # JWT, OAuth, Refresh guards
-│   └── strategies/         # Passport strategies
-├── users/                   # User management module
-│   ├── dto/                # Create/Update user DTOs
-│   └── entities/           # UserEntity with @Exclude()
-├── recipes/                 # Recipe management module
-│   ├── dto/                # Create/Update recipe DTOs
-│   ├── decorators/         # Custom decorators
-│   └── entities/           # RecipeEntity
-├── prisma/                  # Database service (global)
-├── common/                  # Shared utilities
-│   └── middleware/         # CSRF, etc.
-└── main.ts                 # Bootstrap, global pipes/interceptors
+├── auth/                       # Authentication module
+│   ├── decorators/            # @Public(), @CurrentUser()
+│   ├── dto/                   # Login, Register, OAuth DTOs
+│   ├── filters/               # Exception filters for auth
+│   ├── guards/                # JWT, OAuth, Refresh guards
+│   └── strategies/            # Passport strategies
+├── users/                      # User management module
+│   ├── dto/                   # Create/Update user DTOs
+│   └── entities/              # UserEntity with @Exclude()
+├── recipes/                    # Recipe management module
+│   ├── dto/                   # Create/Update recipe DTOs
+│   └── entities/              # RecipeEntity
+├── recipe-ingredients/         # Recipe ingredients submodule
+│   ├── dto/                   # Create/Update ingredient DTOs
+│   ├── entities/              # RecipeIngredientEntity
+│   └── recipe-ingredients.controller.ts  # Nested routes
+├── recipe-steps/               # Recipe steps submodule
+│   ├── dto/                   # Create/Update step DTOs
+│   ├── entities/              # RecipeStepEntity
+│   └── recipe-steps.controller.ts       # Nested routes
+├── prisma/                     # Database service (global)
+├── common/                     # Shared utilities
+│   └── middleware/            # CSRF, etc.
+└── main.ts                    # Bootstrap, global pipes/interceptors
 
 prisma/
-├── schema.prisma           # Database schema
-└── migrations/             # Migration history
+├── schema.prisma              # Database schema
+└── migrations/                # Migration history
 
-prisma.config.ts            # Prisma 7 configuration (root level)
-Dockerfile                   # 3-stage production build
-test/                        # E2E tests
+.claude/
+└── rules/                     # Development patterns and standards
+    ├── api-design.md         # RESTful conventions, status codes
+    ├── nestjs-patterns.md    # Service/controller rules
+    ├── security.md           # Auth, validation, cookies
+    └── typescript.md         # Type safety, decorators
+
+prisma.config.ts               # Prisma 7 configuration (root level)
+Dockerfile                      # 2-stage production build
+entrypoint.sh                   # Startup script (migrations + app)
+test/                           # E2E tests
 ```
 
 ## Common Issues & Solutions
@@ -417,6 +433,14 @@ E2E tests expect PostgreSQL running. Ensure DATABASE_URL is set correctly.
 - Cookies use SameSite='none' in development (requires secure: true)
 - Frontend must use `credentials: 'include'` in fetch/axios
 
+## Development Standards
+
+**See `.claude/rules/` for comprehensive patterns:**
+- `api-design.md` - RESTful conventions, HTTP methods, status codes, cookie-based auth flow
+- `nestjs-patterns.md` - Service/controller rules, module organization, DTOs, Entity pattern
+- `security.md` - Authentication, password handling, cookie security, input validation
+- `typescript.md` - Type safety, decorators, import organization, null safety
+
 ## Important Notes
 
 - **Global Guards**: JWT authentication is applied globally. Routes are protected by default.
@@ -428,3 +452,4 @@ E2E tests expect PostgreSQL running. Ensure DATABASE_URL is set correctly.
 - **Rate Limiting**: Default 10 requests per 60 seconds (affects all routes)
 - **Cascade Deletes**: Recipes and related entities (ingredients, steps) are cascade-deleted when user is deleted
 - **Recipe Ownership**: All recipe operations validate user ownership via userId foreign key
+- **Nested Routes**: Ingredients and steps use nested routes (`/recipes/:recipeId/ingredients`, `/recipes/:recipeId/steps`) with separate modules
