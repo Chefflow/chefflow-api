@@ -29,6 +29,9 @@ export class RecipesController {
     @Body() createRecipeDto: CreateRecipeDto,
   ): Promise<RecipeEntity> {
     const recipe = await this.recipesService.create(userId, createRecipeDto);
+    if (!recipe) {
+      throw new Error('Failed to create recipe');
+    }
     return new RecipeEntity(recipe);
   }
 

@@ -1,4 +1,30 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateRecipeDto } from './create-recipe.dto';
+import { IsString, IsOptional, IsInt, Min } from 'class-validator';
 
-export class UpdateRecipeDto extends PartialType(CreateRecipeDto) {}
+export class UpdateRecipeDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  servings?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  prepTime?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cookTime?: number;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+}
