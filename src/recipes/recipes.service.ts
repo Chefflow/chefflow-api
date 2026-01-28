@@ -6,18 +6,59 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import { RecipeIngredientsService } from '../recipe-ingredients/recipe-ingredients.service';
+import { RecipeStepsService } from '../recipe-steps/recipe-steps.service';
 
 @Injectable()
 export class RecipesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ingredientsService: RecipeIngredientsService,
+    private readonly stepsService: RecipeStepsService,
+  ) {}
 
-  async create(userId: number, recipe: CreateRecipeDto) {
-    return await this.prisma.recipe.create({
-      data: {
-        userId,
-        ...recipe,
-        servings: recipe.servings ?? 1,
-      },
+  async create(userId: number, recipeDto: CreateRecipeDto) {
+    return await this.prisma.$transaction(async (tx) => {
+      const recipe = await tx.recipe.create({
+        data: {
+          userId,
+          title: recipeDto.title,
+          description: recipeDto.description,
+          servings: recipeDto.servings ?? 1,
+          prepTime: recipeDto.prepTime,
+          cookTime: recipeDto.cookTime,
+          imageUrl: recipeDto.imageUrl,
+        },
+      });
+
+      if (recipeDto.ingredients && recipeDto.ingredients.length > 0) {
+        for (const ingredientDto of recipeDto.ingredients) {
+          await this.ingredientsService.add(
+            userId,
+            recipe.id,
+            ingredientDto,
+            tx,
+          );
+        }
+      }
+
+      if (recipeDto.steps && recipeDto.steps.length > 0) {
+        for (const stepDto of recipeDto.steps) {
+          await this.stepsService.create(userId, recipe.id, stepDto, tx);
+        }
+      }
+
+      return await tx.recipe.findUnique({
+        where: { id: recipe.id },
+        include: {
+          ingredients: {
+            orderBy: { order: 'asc' },
+          },
+          steps: {
+            orderBy: { stepNumber: 'asc' },
+          },
+        },
+      });
     });
   }
 

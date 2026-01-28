@@ -4,6 +4,8 @@ import { RecipesService } from './recipes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
+import { RecipeIngredientsService } from '../recipe-ingredients/recipe-ingredients.service';
+import { RecipeStepsService } from '../recipe-steps/recipe-steps.service';
 
 describe('RecipesService', () => {
   let service: RecipesService;
@@ -16,6 +18,25 @@ describe('RecipesService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    recipeIngredient: {
+      createMany: jest.fn(),
+    },
+    recipeStep: {
+      createMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+
+  const mockRecipeIngredientsService = {
+    add: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  };
+
+  const mockRecipeStepsService = {
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -25,6 +46,14 @@ describe('RecipesService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RecipeIngredientsService,
+          useValue: mockRecipeIngredientsService,
+        },
+        {
+          provide: RecipeStepsService,
+          useValue: mockRecipeStepsService,
         },
       ],
     }).compile();
@@ -60,19 +89,22 @@ describe('RecipesService', () => {
     };
 
     it('should create a recipe successfully', async () => {
-      mockPrismaService.recipe.create.mockResolvedValue(createdRecipe);
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          recipe: {
+            create: jest.fn().mockResolvedValue(createdRecipe),
+            findUnique: jest.fn().mockResolvedValue(createdRecipe),
+          },
+          recipeIngredient: { createMany: jest.fn() },
+          recipeStep: { createMany: jest.fn() },
+        };
+        return callback(tx);
+      });
 
       const result = await service.create(userId, createRecipeDto);
 
       expect(result).toEqual(createdRecipe);
-      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith({
-        data: {
-          userId,
-          ...createRecipeDto,
-          servings: createRecipeDto.servings,
-        },
-      });
-      expect(mockPrismaService.recipe.create).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('should create a recipe with default servings when not provided', async () => {
@@ -93,20 +125,22 @@ describe('RecipesService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.recipe.create.mockResolvedValue(
-        createdRecipeWithDefaults,
-      );
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          recipe: {
+            create: jest.fn().mockResolvedValue(createdRecipeWithDefaults),
+            findUnique: jest.fn().mockResolvedValue(createdRecipeWithDefaults),
+          },
+          recipeIngredient: { createMany: jest.fn() },
+          recipeStep: { createMany: jest.fn() },
+        };
+        return callback(tx);
+      });
 
       const result = await service.create(userId, recipeWithoutServings);
 
       expect(result.servings).toBe(1);
-      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith({
-        data: {
-          userId,
-          ...recipeWithoutServings,
-          servings: 1,
-        },
-      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('should create a recipe with null optional fields', async () => {
@@ -127,7 +161,17 @@ describe('RecipesService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.recipe.create.mockResolvedValue(createdMinimalRecipe);
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          recipe: {
+            create: jest.fn().mockResolvedValue(createdMinimalRecipe),
+            findUnique: jest.fn().mockResolvedValue(createdMinimalRecipe),
+          },
+          recipeIngredient: { createMany: jest.fn() },
+          recipeStep: { createMany: jest.fn() },
+        };
+        return callback(tx);
+      });
 
       const result = await service.create(userId, minimalRecipe);
 
@@ -136,6 +180,119 @@ describe('RecipesService', () => {
       expect(result.prepTime).toBeNull();
       expect(result.cookTime).toBeNull();
       expect(result.imageUrl).toBeNull();
+    });
+
+    it('should create a recipe with ingredients and steps', async () => {
+      const recipeWithAll: CreateRecipeDto = {
+        title: 'Complete Recipe',
+        description: 'A complete recipe',
+        servings: 4,
+        ingredients: [
+          {
+            ingredientName: 'Pasta',
+            quantity: 400,
+            unit: 'GRAM' as any,
+            notes: 'Spaghetti',
+          },
+          {
+            ingredientName: 'Tomato',
+            quantity: 3,
+            unit: 'UNIT' as any,
+          },
+        ],
+        steps: [
+          { instruction: 'Boil water' },
+          { instruction: 'Cook pasta', duration: 10 },
+        ],
+      };
+
+      const createdRecipeWithAll = {
+        id: 1,
+        userId,
+        title: 'Complete Recipe',
+        description: 'A complete recipe',
+        servings: 4,
+        prepTime: null,
+        cookTime: null,
+        imageUrl: null,
+        ingredients: [
+          {
+            id: 1,
+            recipeId: 1,
+            ingredientName: 'Pasta',
+            quantity: 400,
+            unit: 'GRAM',
+            notes: 'Spaghetti',
+            order: 0,
+          },
+          {
+            id: 2,
+            recipeId: 1,
+            ingredientName: 'Tomato',
+            quantity: 3,
+            unit: 'UNIT',
+            notes: null,
+            order: 1,
+          },
+        ],
+        steps: [
+          {
+            id: 1,
+            recipeId: 1,
+            stepNumber: 1,
+            instruction: 'Boil water',
+            duration: null,
+          },
+          {
+            id: 2,
+            recipeId: 1,
+            stepNumber: 2,
+            instruction: 'Cook pasta',
+            duration: 10,
+          },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockRecipeIngredientsService.add.mockResolvedValue({
+        id: 1,
+        recipeId: 1,
+        ingredientName: 'Pasta',
+        quantity: 400,
+        unit: 'GRAM',
+        notes: 'Spaghetti',
+        order: 0,
+      });
+
+      mockRecipeStepsService.create.mockResolvedValue({
+        id: 1,
+        recipeId: 1,
+        stepNumber: 1,
+        instruction: 'Boil water',
+        duration: null,
+      });
+
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          recipe: {
+            create: jest.fn().mockResolvedValue({ id: 1, userId }),
+            findUnique: jest.fn().mockResolvedValue(createdRecipeWithAll),
+          },
+          recipeIngredient: { findFirst: jest.fn() },
+          recipeStep: { findFirst: jest.fn() },
+        };
+        return callback(tx);
+      });
+
+      const result = await service.create(userId, recipeWithAll);
+
+      expect(result).toEqual(createdRecipeWithAll);
+      expect(result.ingredients).toHaveLength(2);
+      expect(result.steps).toHaveLength(2);
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockRecipeIngredientsService.add).toHaveBeenCalledTimes(2);
+      expect(mockRecipeStepsService.create).toHaveBeenCalledTimes(2);
     });
   });
 

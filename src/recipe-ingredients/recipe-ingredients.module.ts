@@ -7,5 +7,6 @@ import { RecipeIngredientsController } from './recipe-ingredients.controller';
   imports: [PrismaModule],
   controllers: [RecipeIngredientsController],
   providers: [RecipeIngredientsService],
+  exports: [RecipeIngredientsService],
 })
 export class RecipeIngredientsModule {}

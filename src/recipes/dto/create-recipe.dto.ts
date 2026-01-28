@@ -1,4 +1,7 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateRecipeIngredientDto } from '../../recipe-ingredients/dto/create-recipe-ingredient.dto';
+import { CreateRecipeStepDto } from '../../recipe-steps/dto/create-recipe-step.dto';
 
 export class CreateRecipeDto {
   @IsString()
@@ -26,4 +29,16 @@ export class CreateRecipeDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRecipeIngredientDto)
+  ingredients?: CreateRecipeIngredientDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRecipeStepDto)
+  steps?: CreateRecipeStepDto[];
 }

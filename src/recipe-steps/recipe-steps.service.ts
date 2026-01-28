@@ -6,13 +6,23 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeStepDto } from './dto/create-recipe-step.dto';
 import { UpdateRecipeStepDto } from './dto/update-recipe-step.dto';
+import type { Prisma } from '@prisma/client';
+
+type PrismaTransaction = Prisma.TransactionClient;
 
 @Injectable()
 export class RecipeStepsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: number, recipeId: number, dto: CreateRecipeStepDto) {
-    const recipe = await this.prisma.recipe.findUnique({
+  async create(
+    userId: number,
+    recipeId: number,
+    dto: CreateRecipeStepDto,
+    tx?: PrismaTransaction,
+  ) {
+    const prisma = tx ?? this.prisma;
+
+    const recipe = await prisma.recipe.findUnique({
       where: { id: recipeId },
     });
 
@@ -24,14 +34,14 @@ export class RecipeStepsService {
       throw new ForbiddenException('You do not have access to this recipe');
     }
 
-    const lastStep = await this.prisma.recipeStep.findFirst({
+    const lastStep = await prisma.recipeStep.findFirst({
       where: { recipeId },
       orderBy: { stepNumber: 'desc' },
     });
 
     const stepNumber = (lastStep?.stepNumber ?? 0) + 1;
 
-    return await this.prisma.recipeStep.create({
+    return await prisma.recipeStep.create({
       data: {
         recipeId,
         stepNumber,
@@ -45,8 +55,11 @@ export class RecipeStepsService {
     recipeId: number,
     stepId: number,
     dto: UpdateRecipeStepDto,
+    tx?: PrismaTransaction,
   ) {
-    const recipe = await this.prisma.recipe.findUnique({
+    const prisma = tx ?? this.prisma;
+
+    const recipe = await prisma.recipe.findUnique({
       where: { id: recipeId },
     });
 
@@ -58,7 +71,7 @@ export class RecipeStepsService {
       throw new ForbiddenException('You do not have access to this recipe');
     }
 
-    const step = await this.prisma.recipeStep.findUnique({
+    const step = await prisma.recipeStep.findUnique({
       where: { id: stepId },
     });
 
@@ -70,14 +83,21 @@ export class RecipeStepsService {
       throw new NotFoundException(`Step with ID ${stepId} not found`);
     }
 
-    return await this.prisma.recipeStep.update({
+    return await prisma.recipeStep.update({
       where: { id: stepId },
       data: dto,
     });
   }
 
-  async delete(userId: number, recipeId: number, stepId: number) {
-    const recipe = await this.prisma.recipe.findUnique({
+  async delete(
+    userId: number,
+    recipeId: number,
+    stepId: number,
+    tx?: PrismaTransaction,
+  ) {
+    const prisma = tx ?? this.prisma;
+
+    const recipe = await prisma.recipe.findUnique({
       where: { id: recipeId },
     });
 
@@ -89,7 +109,7 @@ export class RecipeStepsService {
       throw new ForbiddenException('You do not have access to this recipe');
     }
 
-    const step = await this.prisma.recipeStep.findUnique({
+    const step = await prisma.recipeStep.findUnique({
       where: { id: stepId },
     });
 
@@ -101,7 +121,7 @@ export class RecipeStepsService {
       throw new NotFoundException(`Step with ID ${stepId} not found`);
     }
 
-    await this.prisma.recipeStep.delete({
+    await prisma.recipeStep.delete({
       where: { id: stepId },
     });
   }

@@ -7,5 +7,6 @@ import { RecipeStepsController } from './recipe-steps.controller';
   imports: [PrismaModule],
   controllers: [RecipeStepsController],
   providers: [RecipeStepsService],
+  exports: [RecipeStepsService],
 })
 export class RecipeStepsModule {}
