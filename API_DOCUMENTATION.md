@@ -1,118 +1,53 @@
-# Chefflow API Documentation
-
-Complete endpoint documentation for frontend development.
+# Chefflow API Reference
 
 **Base URL**: `http://localhost:4000` (development) | `https://api.yourdomain.com` (production)
 
+**Authentication**: HTTP-only cookie-based JWT (automatic)
+
+**Rate Limit**: 10 requests / 60 seconds
+
+---
+
 ## Table of Contents
 
-- [Key Concepts](#key-concepts)
 - [Authentication](#authentication)
 - [Users](#users)
 - [Recipes](#recipes)
 - [Recipe Ingredients](#recipe-ingredients)
 - [Recipe Steps](#recipe-steps)
-- [HTTP Status Codes](#http-status-codes)
-- [Error Handling](#error-handling)
-- [Recommended Workflow](#recommended-workflow)
-
----
-
-## Key Concepts
-
-### Atomic Transactions
-
-When you create a recipe with ingredients and steps in a single request (`POST /recipes`), the backend uses a **database transaction**. This means:
-
-- ✅ **All or nothing**: If any part fails (recipe, ingredient, or step), the entire operation is canceled
-- ✅ **No inconsistent states**: You'll never have a half-created recipe in the database
-- ✅ **Automatic rollback**: If there's an error, all changes are automatically reverted
-
-**Example**:
-```javascript
-// This request creates: 1 recipe + 3 ingredients + 2 steps
-const recipe = await api.createRecipe({
-  title: "Pasta",
-  ingredients: [
-    { ingredientName: "Pasta", quantity: 400, unit: "GRAM" },
-    { ingredientName: "Salt", quantity: 1, unit: "PINCH" },
-    { ingredientName: "Oil", quantity: 2, unit: "TABLESPOON" }
-  ],
-  steps: [
-    { instruction: "Boil water" },
-    { instruction: "Cook pasta" }
-  ]
-});
-
-// If something fails (e.g., invalid unit), NOTHING is created
-// If everything succeeds, EVERYTHING is created at once
-```
-
-### Two Ways to Work with Recipes
-
-#### 1. Atomic Approach (Recommended for creation)
-Create everything in a single request:
-```javascript
-POST /recipes
-{
-  title: "...",
-  ingredients: [...],
-  steps: [...]
-}
-```
-
-#### 2. Incremental Approach (Recommended for editing)
-Create/edit individual parts:
-```javascript
-POST /recipes                          // Create base recipe
-POST /recipes/:id/ingredients          // Add ingredient
-PATCH /recipes/:id/ingredients/:ingId  // Edit ingredient
-DELETE /recipes/:id/steps/:stepId      // Delete step
-```
-
-Both approaches are valid. Use the one that best fits your user interface.
 
 ---
 
 ## Authentication
 
-The API uses **HTTP-only cookie-based** authentication with JWT. Cookies are set automatically after login/registration.
+Cookie-based authentication with JWT. Cookies are set/cleared automatically.
 
-### Cookies
+| Cookie | Lifetime | Path |
+|--------|----------|------|
+| `accessToken` | 15 minutes | `/` |
+| `Refresh` | 7 days | `/auth/refresh` |
 
-- `accessToken`: JWT access token (valid for 15 minutes)
-- `Refresh`: Refresh token (valid for 7 days)
-
-**Important**: The frontend must include `credentials: 'include'` in all fetch/axios requests.
-
-```javascript
-fetch('http://localhost:4000/auth/login', {
-  credentials: 'include',
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ username: 'user', password: 'hash' })
-})
-```
+**Important**: Include `credentials: 'include'` in all requests.
 
 ---
 
 ### POST /auth/register
 
-Registers a new user.
+Create new user account.
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Request Body**:
+**Body**:
 ```json
 {
-  "username": "string (3-30 characters, letters, numbers, hyphens and underscores only)",
-  "email": "string (valid email)",
-  "password": "string (SHA-256 hash, 64 hexadecimal characters)",
-  "name": "string (1-100 characters)"
+  "username": "string",        // 3-30 chars, alphanumeric + - _
+  "email": "string",           // Valid email
+  "password": "string",        // SHA-256 hash (64 hex chars)
+  "name": "string"            // 1-100 chars
 }
 ```
 
-**Response** (201 Created):
+**Response**: `201 Created`
 ```json
 {
   "user": {
@@ -125,18 +60,6 @@ Registers a new user.
     "createdAt": "2024-01-01T00:00:00.000Z",
     "updatedAt": "2024-01-01T00:00:00.000Z"
   }
-}
-```
-
-**Note**: Passwords must be hashed on the frontend using SHA-256 before sending.
-
-```javascript
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 ```
 
@@ -144,47 +67,36 @@ async function hashPassword(password) {
 
 ### POST /auth/login
 
-Logs in with username and password.
+Authenticate user.
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Request Body**:
+**Body**:
 ```json
 {
-  "username": "string (minimum 3 characters)",
-  "password": "string (SHA-256 hash, 64 hexadecimal characters)"
+  "username": "string",
+  "password": "string"  // SHA-256 hash
 }
 ```
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
-  "user": {
-    "username": "johndoe",
-    "email": "john@example.com",
-    "name": "John Doe",
-    "provider": "LOCAL",
-    "providerId": null,
-    "image": null,
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
-  }
+  "user": { /* User object */ }
 }
 ```
 
-**Common Errors**:
-- 401: Invalid credentials
-- 400: Invalid input data
+**Errors**: `401` Invalid credentials | `400` Invalid input
 
 ---
 
 ### GET /auth/profile
 
-Gets the authenticated user's profile.
+Get authenticated user profile.
 
-**Authentication**: Required
+**Auth**: Required
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
   "username": "johndoe",
@@ -202,59 +114,51 @@ Gets the authenticated user's profile.
 
 ### GET /auth/refresh
 
-Refreshes authentication tokens.
+Refresh access token using refresh token.
 
-**Authentication**: Requires valid `Refresh` cookie
+**Auth**: Requires `Refresh` cookie
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
   "message": "Tokens refreshed"
 }
 ```
 
-**Note**: Cookies are updated automatically.
-
 ---
 
 ### POST /auth/logout
 
-Logs out the user.
+Clear authentication cookies.
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
   "message": "Logged out successfully"
 }
 ```
 
-**Note**: The `accessToken` and `Refresh` cookies are automatically deleted.
-
 ---
 
 ### GET /auth/google
 
-Initiates Google OAuth2 authentication flow.
+Initiate Google OAuth2 flow.
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Usage**: Redirects the user to Google's authorization page.
-
-```html
-<a href="http://localhost:4000/auth/google">Sign in with Google</a>
-```
+**Usage**: Redirect user to this endpoint.
 
 ---
 
 ### GET /auth/google/callback
 
-Google OAuth2 callback (automatically handled by backend).
+OAuth2 callback handler.
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Behavior**: After successful authentication, redirects the user to `${FRONTEND_URL}/auth/callback` with cookies set.
+**Behavior**: Redirects to `${FRONTEND_URL}/auth/callback` with cookies set.
 
 ---
 
@@ -262,170 +166,96 @@ Google OAuth2 callback (automatically handled by backend).
 
 ### POST /users
 
-Creates a new user (similar to register but more flexible).
+Create user (flexible version of register).
 
-**Authentication**: Not required (public endpoint)
+**Auth**: Public
 
-**Request Body**:
+**Body**:
 ```json
 {
-  "username": "string (3-30 characters, letters, numbers, hyphens and underscores only)",
-  "email": "string (valid email)",
-  "passwordHash": "string (optional)",
-  "name": "string (optional, max 100 characters)",
-  "image": "string (optional, image URL)",
-  "provider": "LOCAL | GOOGLE | APPLE | GITHUB (optional, default: LOCAL)",
-  "providerId": "string (optional)"
+  "username": "string",         // Required
+  "email": "string",           // Required
+  "passwordHash": "string",    // Optional
+  "name": "string",            // Optional
+  "image": "string",           // Optional (URL)
+  "provider": "LOCAL | GOOGLE | APPLE | GITHUB",  // Optional
+  "providerId": "string"       // Optional
 }
 ```
 
-**Response** (201 Created):
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "name": "John Doe",
-  "image": null,
-  "provider": "LOCAL",
-  "providerId": null,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
-}
-```
+**Response**: `201 Created`
 
 ---
 
 ### GET /users/me
 
-Gets the current user's profile.
+Get current user profile.
 
-**Authentication**: Required
+**Auth**: Required
 
-**Response** (200 OK):
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "name": "John Doe",
-  "image": null,
-  "provider": "LOCAL",
-  "providerId": null,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
-}
-```
+**Response**: `200 OK` - User object
 
 ---
 
 ### GET /users
 
-Lists all users.
+List all users.
 
-**Authentication**: Required
+**Auth**: Required
 
-**Response** (200 OK):
-```json
-[
-  {
-    "username": "johndoe",
-    "email": "john@example.com",
-    "name": "John Doe",
-    "image": null,
-    "provider": "LOCAL",
-    "providerId": null,
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
-  }
-]
-```
+**Response**: `200 OK` - Array of user objects
 
 ---
 
 ### GET /users/:username
 
-Gets a user by username.
+Get user by username.
 
-**Authentication**: Required
+**Auth**: Required
 
-**Path Parameters**:
-- `username`: User's username
+**Params**: `username` (string)
 
-**Response** (200 OK):
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "name": "John Doe",
-  "image": null,
-  "provider": "LOCAL",
-  "providerId": null,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
-}
-```
+**Response**: `200 OK` - User object
 
-**Errors**:
-- 404: User not found
+**Errors**: `404` Not found
 
 ---
 
 ### PATCH /users/:username
 
-Updates a user's profile.
+Update user profile (own profile only).
 
-**Authentication**: Required
+**Auth**: Required
 
-**Authorization**: You can only update your own profile
+**Params**: `username` (string)
 
-**Path Parameters**:
-- `username`: Username of the user to update
-
-**Request Body** (all fields are optional):
+**Body**:
 ```json
 {
-  "name": "string (max 100 characters)",
-  "image": "string (image URL)"
+  "name": "string",    // Optional
+  "image": "string"    // Optional (URL)
 }
 ```
 
-**Response** (200 OK):
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "name": "John Updated",
-  "image": "https://example.com/avatar.jpg",
-  "provider": "LOCAL",
-  "providerId": null,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T12:00:00.000Z"
-}
-```
+**Response**: `200 OK` - Updated user object
 
-**Errors**:
-- 403: Forbidden (attempting to update another user's profile)
-- 404: User not found
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ### DELETE /users/:username
 
-Deletes a user account.
+Delete user account (own account only).
 
-**Authentication**: Required
+**Auth**: Required
 
-**Authorization**: You can only delete your own account
+**Params**: `username` (string)
 
-**Path Parameters**:
-- `username`: Username of the user to delete
+**Response**: `204 No Content`
 
-**Response** (204 No Content): No content
+**Errors**: `403` Forbidden | `404` Not found
 
-**Errors**:
-- 403: Forbidden (attempting to delete another user's account)
-- 404: User not found
-
-**Note**: This operation deletes the user and all their recipes in cascade.
+**Note**: Cascade deletes all user recipes.
 
 ---
 
@@ -433,82 +263,40 @@ Deletes a user account.
 
 ### POST /recipes
 
-Creates a new recipe. Optionally, you can include ingredients and steps in the same request.
+Create recipe with optional ingredients and steps (atomic transaction).
 
-**Authentication**: Required
+**Auth**: Required
 
-**Request Body**:
+**Body**:
 ```json
 {
-  "title": "string (required)",
-  "description": "string (optional)",
-  "servings": "number (optional, minimum 1, default: 1)",
-  "prepTime": "number (optional, minutes, minimum 0)",
-  "cookTime": "number (optional, minutes, minimum 0)",
-  "imageUrl": "string (optional, image URL)",
-  "ingredients": [
+  "title": "string",                    // Required
+  "description": "string",              // Optional
+  "servings": 1,                        // Optional (default: 1, min: 1)
+  "prepTime": 0,                        // Optional (minutes, min: 0)
+  "cookTime": 0,                        // Optional (minutes, min: 0)
+  "imageUrl": "string",                 // Optional
+  "ingredients": [                      // Optional
     {
-      "ingredientName": "string (required, max 100 characters)",
-      "quantity": "number (required, minimum 0.01)",
-      "unit": "GRAM | KILOGRAM | MILLILITER | LITER | TEASPOON | TABLESPOON | CUP | UNIT | PINCH | TO_TASTE",
-      "notes": "string (optional, max 500 characters)",
-      "order": "number (optional, auto-assigned by index if not specified)"
+      "ingredientName": "string",       // Required (max: 100)
+      "quantity": 0.01,                 // Required (min: 0.01)
+      "unit": "GRAM",                   // Required (see units below)
+      "notes": "string",                // Optional (max: 500)
+      "order": 0                        // Optional (auto-assigned)
     }
   ],
-  "steps": [
+  "steps": [                            // Optional
     {
-      "instruction": "string (required, max 1000 characters)",
-      "duration": "number (optional, minutes, minimum 0)"
+      "instruction": "string",          // Required (max: 1000)
+      "duration": 0                     // Optional (minutes, min: 0)
     }
   ]
 }
 ```
 
-**Complete Example**:
-```json
-{
-  "title": "Pasta Carbonara",
-  "description": "Delicious Italian pasta",
-  "servings": 4,
-  "prepTime": 10,
-  "cookTime": 20,
-  "imageUrl": "https://example.com/pasta.jpg",
-  "ingredients": [
-    {
-      "ingredientName": "Pasta",
-      "quantity": 400,
-      "unit": "GRAM",
-      "notes": "Preferably spaghetti"
-    },
-    {
-      "ingredientName": "Eggs",
-      "quantity": 4,
-      "unit": "UNIT"
-    },
-    {
-      "ingredientName": "Parmesan cheese",
-      "quantity": 100,
-      "unit": "GRAM"
-    }
-  ],
-  "steps": [
-    {
-      "instruction": "Boil plenty of salted water in a large pot",
-      "duration": 5
-    },
-    {
-      "instruction": "Cook pasta according to package instructions",
-      "duration": 10
-    },
-    {
-      "instruction": "Mix eggs with grated cheese in a bowl",
-      "duration": 3
-    }
-  ]
-}
-```
+**Units**: `GRAM`, `KILOGRAM`, `MILLILITER`, `LITER`, `TEASPOON`, `TABLESPOON`, `CUP`, `UNIT`, `PINCH`, `TO_TASTE`
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
   "id": 1,
@@ -530,24 +318,6 @@ Creates a new recipe. Optionally, you can include ingredients and steps in the s
       "unit": "GRAM",
       "notes": "Preferably spaghetti",
       "order": 0
-    },
-    {
-      "id": 2,
-      "recipeId": 1,
-      "ingredientName": "Eggs",
-      "quantity": 4,
-      "unit": "UNIT",
-      "notes": null,
-      "order": 1
-    },
-    {
-      "id": 3,
-      "recipeId": 1,
-      "ingredientName": "Parmesan cheese",
-      "quantity": 100,
-      "unit": "GRAM",
-      "notes": null,
-      "order": 2
     }
   ],
   "steps": [
@@ -555,632 +325,260 @@ Creates a new recipe. Optionally, you can include ingredients and steps in the s
       "id": 1,
       "recipeId": 1,
       "stepNumber": 1,
-      "instruction": "Boil plenty of salted water in a large pot",
+      "instruction": "Boil water",
       "duration": 5
-    },
-    {
-      "id": 2,
-      "recipeId": 1,
-      "stepNumber": 2,
-      "instruction": "Cook pasta according to package instructions",
-      "duration": 10
-    },
-    {
-      "id": 3,
-      "recipeId": 1,
-      "stepNumber": 3,
-      "instruction": "Mix eggs with grated cheese in a bowl",
-      "duration": 3
     }
   ]
 }
 ```
 
-**Important Notes**:
-- The `ingredients` and `steps` arrays are **optional**. You can create an empty recipe and add details later using nested endpoints.
-- If you include ingredients without specifying `order`, it's automatically assigned by array index (0, 1, 2...).
-- Steps are automatically numbered (`stepNumber`) by array order (1, 2, 3...).
-- **Atomic transaction**: If any ingredient or step creation fails, the entire operation is reverted (recipe is not created).
-- To create just the base recipe without ingredients or steps, simply omit those fields.
+**Note**: Transaction is atomic. If any part fails, nothing is created.
 
 ---
 
 ### GET /recipes
 
-Lists all recipes for the authenticated user.
+List all user recipes.
 
-**Authentication**: Required
+**Auth**: Required
 
-**Response** (200 OK):
-```json
-[
-  {
-    "id": 1,
-    "userId": 123,
-    "title": "Pasta Carbonara",
-    "description": "Delicious Italian pasta",
-    "servings": 4,
-    "prepTime": 10,
-    "cookTime": 20,
-    "imageUrl": "https://example.com/pasta.jpg",
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
-  }
-]
-```
+**Response**: `200 OK` - Array of recipe objects (without nested ingredients/steps)
 
 ---
 
 ### GET /recipes/:id
 
-Gets a specific recipe by ID, **including all its ingredients and steps**.
+Get recipe by ID with ingredients and steps.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only view your own recipes
+**Params**: `id` (integer)
 
-**Path Parameters**:
-- `id`: Recipe numeric ID
+**Response**: `200 OK` - Recipe object with `ingredients[]` and `steps[]`
 
-**Response** (200 OK):
-```json
-{
-  "id": 1,
-  "userId": 123,
-  "title": "Pasta Carbonara",
-  "description": "Delicious Italian pasta",
-  "servings": 4,
-  "prepTime": 10,
-  "cookTime": 20,
-  "imageUrl": "https://example.com/pasta.jpg",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z",
-  "ingredients": [
-    {
-      "id": 1,
-      "recipeId": 1,
-      "ingredientName": "Pasta",
-      "quantity": 400,
-      "unit": "GRAM",
-      "notes": "Preferably spaghetti",
-      "order": 0
-    },
-    {
-      "id": 2,
-      "recipeId": 1,
-      "ingredientName": "Eggs",
-      "quantity": 4,
-      "unit": "UNIT",
-      "notes": null,
-      "order": 1
-    }
-  ],
-  "steps": [
-    {
-      "id": 1,
-      "recipeId": 1,
-      "stepNumber": 1,
-      "instruction": "Boil salted water",
-      "duration": 5
-    },
-    {
-      "id": 2,
-      "recipeId": 1,
-      "stepNumber": 2,
-      "instruction": "Cook pasta",
-      "duration": 10
-    }
-  ]
-}
-```
-
-**Note**: This endpoint always returns ingredients and steps included, ordered by `order` and `stepNumber` respectively.
-
-**Errors**:
-- 404: Recipe not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ### PATCH /recipes/:id
 
-Updates an existing recipe.
+Update recipe base fields.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only update your own recipes
+**Params**: `id` (integer)
 
-**Path Parameters**:
-- `id`: Recipe numeric ID
-
-**Request Body** (all fields are optional):
+**Body**:
 ```json
 {
-  "title": "string",
-  "description": "string",
-  "servings": "number (minimum 1)",
-  "prepTime": "number (minimum 0)",
-  "cookTime": "number (minimum 0)",
-  "imageUrl": "string"
+  "title": "string",         // Optional
+  "description": "string",   // Optional
+  "servings": 1,             // Optional (min: 1)
+  "prepTime": 0,             // Optional (min: 0)
+  "cookTime": 0,             // Optional (min: 0)
+  "imageUrl": "string"       // Optional
 }
 ```
 
-**Response** (200 OK):
-```json
-{
-  "id": 1,
-  "userId": 123,
-  "title": "Improved Pasta Carbonara",
-  "description": "Delicious Italian pasta with a special touch",
-  "servings": 6,
-  "prepTime": 15,
-  "cookTime": 25,
-  "imageUrl": "https://example.com/pasta-new.jpg",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T12:00:00.000Z"
-}
-```
+**Response**: `200 OK` - Updated recipe object
 
-**Errors**:
-- 404: Recipe not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ### DELETE /recipes/:id
 
-Deletes a recipe.
+Delete recipe.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only delete your own recipes
+**Params**: `id` (integer)
 
-**Path Parameters**:
-- `id`: Recipe numeric ID
+**Response**: `204 No Content`
 
-**Response** (204 No Content): No content
+**Errors**: `403` Forbidden | `404` Not found
 
-**Errors**:
-- 404: Recipe not found
-- 403: You don't have access to this recipe
-
-**Note**: This operation deletes the recipe and all its ingredients and steps in cascade.
+**Note**: Cascade deletes all ingredients and steps.
 
 ---
 
 ## Recipe Ingredients
 
+Nested routes: `/recipes/:recipeId/ingredients`
+
 ### POST /recipes/:recipeId/ingredients
 
-Adds an ingredient to a recipe.
+Add ingredient to recipe.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only add ingredients to your own recipes
+**Params**: `recipeId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-
-**Request Body**:
+**Body**:
 ```json
 {
-  "ingredientName": "string (required, max 100 characters)",
-  "quantity": "number (required, minimum 0.01)",
-  "unit": "GRAM | KILOGRAM | MILLILITER | LITER | TEASPOON | TABLESPOON | CUP | UNIT | PINCH | TO_TASTE (required)",
-  "notes": "string (optional, max 500 characters)",
-  "order": "number (optional, minimum 0, default: 0)"
+  "ingredientName": "string",  // Required (max: 100)
+  "quantity": 0.01,            // Required (min: 0.01)
+  "unit": "GRAM",              // Required
+  "notes": "string",           // Optional (max: 500)
+  "order": 0                   // Optional (min: 0)
 }
 ```
 
-**Unit Examples**:
-- `GRAM`: Grams
-- `KILOGRAM`: Kilograms
-- `MILLILITER`: Milliliters
-- `LITER`: Liters
-- `TEASPOON`: Teaspoon
-- `TABLESPOON`: Tablespoon
-- `CUP`: Cup
-- `UNIT`: Unit (for counting individual items)
-- `PINCH`: Pinch
-- `TO_TASTE`: To taste
+**Response**: `200 OK` - Ingredient object
 
-**Response** (200 OK):
-```json
-{
-  "id": 1,
-  "recipeId": 1,
-  "ingredientName": "Pasta",
-  "quantity": 400,
-  "unit": "GRAM",
-  "notes": "Preferably spaghetti",
-  "order": 0
-}
-```
-
-**Errors**:
-- 404: Recipe not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Recipe not found
 
 ---
 
 ### PATCH /recipes/:recipeId/ingredients/:ingredientId
 
-Updates a recipe ingredient.
+Update ingredient.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only update ingredients of your own recipes
+**Params**: `recipeId` (integer), `ingredientId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-- `ingredientId`: Ingredient ID
+**Body**: All fields optional (same as POST)
 
-**Request Body** (all fields are optional):
-```json
-{
-  "ingredientName": "string (max 100 characters)",
-  "quantity": "number (minimum 0.01)",
-  "unit": "GRAM | KILOGRAM | MILLILITER | LITER | TEASPOON | TABLESPOON | CUP | UNIT | PINCH | TO_TASTE",
-  "notes": "string (max 500 characters)",
-  "order": "number (minimum 0)"
-}
-```
+**Response**: `200 OK` - Updated ingredient object
 
-**Response** (200 OK):
-```json
-{
-  "id": 1,
-  "recipeId": 1,
-  "ingredientName": "Whole wheat pasta",
-  "quantity": 500,
-  "unit": "GRAM",
-  "notes": "Preferably whole wheat spaghetti",
-  "order": 0
-}
-```
-
-**Errors**:
-- 404: Recipe or ingredient not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ### DELETE /recipes/:recipeId/ingredients/:ingredientId
 
-Deletes an ingredient from a recipe.
+Delete ingredient.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only delete ingredients from your own recipes
+**Params**: `recipeId` (integer), `ingredientId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-- `ingredientId`: Ingredient ID
+**Response**: `204 No Content`
 
-**Response** (204 No Content): No content
-
-**Errors**:
-- 404: Recipe or ingredient not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ## Recipe Steps
 
+Nested routes: `/recipes/:recipeId/steps`
+
 ### POST /recipes/:recipeId/steps
 
-Adds a step to a recipe.
+Add step to recipe.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only add steps to your own recipes
+**Params**: `recipeId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-
-**Request Body**:
+**Body**:
 ```json
 {
-  "instruction": "string (required, max 1000 characters)",
-  "duration": "number (optional, minutes, minimum 0)"
+  "instruction": "string",  // Required (max: 1000)
+  "duration": 0             // Optional (minutes, min: 0)
 }
 ```
 
-**Response** (200 OK):
+**Response**: `200 OK`
 ```json
 {
   "id": 1,
   "recipeId": 1,
-  "stepNumber": 1,
-  "instruction": "Boil salted water in a large pot",
+  "stepNumber": 1,  // Auto-assigned sequentially
+  "instruction": "Boil water",
   "duration": 5
 }
 ```
 
-**Note**: The `stepNumber` is automatically assigned sequentially.
-
-**Errors**:
-- 404: Recipe not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Recipe not found
 
 ---
 
 ### PATCH /recipes/:recipeId/steps/:stepId
 
-Updates a recipe step.
+Update step.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only update steps of your own recipes
+**Params**: `recipeId` (integer), `stepId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-- `stepId`: Step ID
+**Body**: All fields optional (same as POST)
 
-**Request Body** (all fields are optional):
-```json
-{
-  "instruction": "string (max 1000 characters)",
-  "duration": "number (minutes, minimum 0)"
-}
-```
+**Response**: `200 OK` - Updated step object
 
-**Response** (200 OK):
-```json
-{
-  "id": 1,
-  "recipeId": 1,
-  "stepNumber": 1,
-  "instruction": "Boil plenty of salted water in a large pot",
-  "duration": 10
-}
-```
-
-**Errors**:
-- 404: Recipe or step not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ### DELETE /recipes/:recipeId/steps/:stepId
 
-Deletes a step from a recipe.
+Delete step.
 
-**Authentication**: Required
+**Auth**: Required (own recipes only)
 
-**Authorization**: You can only delete steps from your own recipes
+**Params**: `recipeId` (integer), `stepId` (integer)
 
-**Path Parameters**:
-- `recipeId`: Recipe ID
-- `stepId`: Step ID
+**Response**: `204 No Content`
 
-**Response** (204 No Content): No content
-
-**Errors**:
-- 404: Recipe or step not found
-- 403: You don't have access to this recipe
+**Errors**: `403` Forbidden | `404` Not found
 
 ---
 
 ## HTTP Status Codes
 
-| Code | Meaning | When Used |
-|------|---------|-----------|
-| 200 | OK | Successful operation (GET, PATCH, POST without resource creation) |
-| 201 | Created | Resource created successfully (POST) |
-| 204 | No Content | Successful operation with no response content (DELETE) |
-| 400 | Bad Request | Invalid or missing input data |
-| 401 | Unauthorized | Not authenticated (invalid or missing token) |
-| 403 | Forbidden | Authenticated but lacking permissions for the operation |
-| 404 | Not Found | Resource not found |
-| 429 | Too Many Requests | Rate limit exceeded (10 req/min) |
-| 500 | Internal Server Error | Server error |
+| Code | Meaning |
+|------|---------|
+| 200 | OK |
+| 201 | Created |
+| 204 | No Content |
+| 400 | Bad Request (validation error) |
+| 401 | Unauthorized (not authenticated) |
+| 403 | Forbidden (no access) |
+| 404 | Not Found |
+| 429 | Too Many Requests (rate limit) |
+| 500 | Internal Server Error |
 
 ---
 
-## Error Handling
-
-All errors follow NestJS standard format:
+## Error Response Format
 
 ```json
 {
   "statusCode": 400,
-  "message": "Validation failed",
+  "message": "Validation failed" | ["error1", "error2"],
   "error": "Bad Request"
 }
 ```
 
-### Validation Errors
+---
 
-When there are validation errors, the message includes specific details:
+## CORS Configuration
 
-```json
-{
-  "statusCode": 400,
-  "message": [
-    "username must be longer than or equal to 3 characters",
-    "email must be an email"
-  ],
-  "error": "Bad Request"
-}
-```
+**Allowed Origins**: `http://localhost:3000`, `http://localhost:5173`, `http://localhost:4200`
 
-### Authentication Errors
+**Allowed Methods**: GET, POST, PUT, PATCH, DELETE, OPTIONS
 
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
-
-### Authorization Errors
-
-```json
-{
-  "statusCode": 403,
-  "message": "You do not have access to this recipe"
-}
-```
-
-### Not Found Errors
-
-```json
-{
-  "statusCode": 404,
-  "message": "Recipe with ID 999 not found"
-}
-```
-
-### Rate Limiting
-
-When the limit of 10 requests per 60 seconds is exceeded:
-
-```json
-{
-  "statusCode": 429,
-  "message": "ThrottlerException: Too Many Requests"
-}
-```
+**Credentials**: Enabled
 
 ---
 
-## Recommended Workflow
+## Client Implementation
 
-### Option 1: Create Complete Recipe at Once (Recommended)
-
-Use this option when the user creates a new recipe with all data available.
+### Password Hashing (Required)
 
 ```javascript
-const newRecipe = await api.createRecipe({
-  title: "Pasta Carbonara",
-  servings: 4,
-  prepTime: 10,
-  cookTime: 20,
-  ingredients: [
-    { ingredientName: "Pasta", quantity: 400, unit: "GRAM" },
-    { ingredientName: "Eggs", quantity: 4, unit: "UNIT" },
-    { ingredientName: "Parmesan cheese", quantity: 100, unit: "GRAM" }
-  ],
-  steps: [
-    { instruction: "Boil salted water", duration: 5 },
-    { instruction: "Cook pasta", duration: 10 },
-    { instruction: "Mix with eggs and cheese", duration: 3 }
-  ]
-});
-
-// The response includes the complete recipe with created ingredients and steps
-console.log(newRecipe.ingredients.length); // 3
-console.log(newRecipe.steps.length); // 3
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 ```
 
-**Advantages**:
-- ✅ Single HTTP request
-- ✅ Atomic transaction (all or nothing)
-- ✅ Better user experience
-- ✅ Ingredients and steps numbered automatically
-
-**How it works internally**:
-The backend uses a **database transaction**. If any ingredient or step creation fails, **the entire operation is canceled** (including the recipe). This ensures you'll never have incomplete recipes in the database.
-
----
-
-### Option 2: Create Empty Recipe and Add Later
-
-Use this option when the user wants to save the recipe first and add details later.
-
-```javascript
-// 1. Create base recipe (without ingredients or steps)
-const recipe = await api.createRecipe({
-  title: "Pasta Carbonara",
-  servings: 4
-});
-
-// 2. Later, add ingredients one by one
-await api.addIngredient(recipe.id, {
-  ingredientName: "Pasta",
-  quantity: 400,
-  unit: "GRAM"
-});
-
-await api.addIngredient(recipe.id, {
-  ingredientName: "Eggs",
-  quantity: 4,
-  unit: "UNIT"
-});
-
-// 3. Add steps one by one
-await api.addStep(recipe.id, {
-  instruction: "Boil salted water",
-  duration: 5
-});
-```
-
-**Advantages**:
-- ✅ Flexibility to build the recipe gradually
-- ✅ Useful for multi-step forms
-
-**Disadvantages**:
-- ⚠️ Multiple HTTP requests
-- ⚠️ Recipe might be left incomplete if user doesn't finish
-
----
-
-### Option 3: Edit Existing Recipe
-
-Use specific endpoints for targeted modifications.
-
-```javascript
-// Change only base recipe fields
-await api.updateRecipe(recipeId, {
-  title: "Improved Pasta Carbonara",
-  servings: 6,
-  prepTime: 15
-});
-
-// Add a new ingredient
-await api.addIngredient(recipeId, {
-  ingredientName: "Bacon",
-  quantity: 150,
-  unit: "GRAM"
-});
-
-// Edit a specific ingredient (without affecting others)
-await api.updateIngredient(recipeId, ingredientId, {
-  quantity: 200  // Only change the quantity
-});
-
-// Delete a step
-await api.deleteStep(recipeId, stepId);
-
-// Add a new step at the end
-await api.addStep(recipeId, {
-  instruction: "Serve hot with parmesan cheese",
-  duration: 1
-});
-```
-
-**Advantages**:
-- ✅ Only send data that changes
-- ✅ More efficient for small edits
-- ✅ Better for interactive interfaces (inline ingredient editing)
-
----
-
-### Strategy Comparison
-
-| Scenario | Recommended Strategy |
-|----------|---------------------|
-| User creates new recipe with complete form | **Option 1** - One request with everything |
-| User saves recipe and adds ingredients later | **Option 2** - Create empty, then add |
-| User edits existing recipe title | **Option 3** - PATCH /recipes/:id |
-| User adds ingredient to existing recipe | **Option 3** - POST /recipes/:id/ingredients |
-| User edits ingredient quantity | **Option 3** - PATCH /recipes/:id/ingredients/:ingredientId |
-| User deletes a step | **Option 3** - DELETE /recipes/:id/steps/:stepId |
-
----
-
-## JavaScript Client Example
+### API Client Class
 
 ```javascript
 class ChefflowAPI {
@@ -1189,67 +587,40 @@ class ChefflowAPI {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const config = {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
       ...options,
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-    };
+    });
 
-    const response = await fetch(url, config);
-
-    if (response.status === 204) {
-      return null;
-    }
+    if (response.status === 204) return null;
 
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Request failed');
-    }
+    if (!response.ok) throw new Error(data.message);
 
     return data;
   }
 
-  async hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
+  // Auth
   async register(username, email, password, name) {
-    const hashedPassword = await this.hashPassword(password);
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({
-        username,
-        email,
-        password: hashedPassword,
-        name,
-      }),
+      body: JSON.stringify({ username, email, password: await hashPassword(password), name }),
     });
   }
 
   async login(username, password) {
-    const hashedPassword = await this.hashPassword(password);
     return this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({
-        username,
-        password: hashedPassword,
-      }),
+      body: JSON.stringify({ username, password: await hashPassword(password) }),
     });
   }
 
   async logout() {
-    return this.request('/auth/logout', {
-      method: 'POST',
-    });
+    return this.request('/auth/logout', { method: 'POST' });
   }
 
   async getProfile() {
@@ -1260,6 +631,7 @@ class ChefflowAPI {
     return this.request('/auth/refresh');
   }
 
+  // Recipes
   async getRecipes() {
     return this.request('/recipes');
   }
@@ -1283,22 +655,21 @@ class ChefflowAPI {
   }
 
   async deleteRecipe(id) {
-    return this.request(`/recipes/${id}`, {
-      method: 'DELETE',
-    });
+    return this.request(`/recipes/${id}`, { method: 'DELETE' });
   }
 
-  async addIngredient(recipeId, ingredientData) {
+  // Ingredients
+  async addIngredient(recipeId, data) {
     return this.request(`/recipes/${recipeId}/ingredients`, {
       method: 'POST',
-      body: JSON.stringify(ingredientData),
+      body: JSON.stringify(data),
     });
   }
 
-  async updateIngredient(recipeId, ingredientId, ingredientData) {
+  async updateIngredient(recipeId, ingredientId, data) {
     return this.request(`/recipes/${recipeId}/ingredients/${ingredientId}`, {
       method: 'PATCH',
-      body: JSON.stringify(ingredientData),
+      body: JSON.stringify(data),
     });
   }
 
@@ -1308,17 +679,18 @@ class ChefflowAPI {
     });
   }
 
-  async addStep(recipeId, stepData) {
+  // Steps
+  async addStep(recipeId, data) {
     return this.request(`/recipes/${recipeId}/steps`, {
       method: 'POST',
-      body: JSON.stringify(stepData),
+      body: JSON.stringify(data),
     });
   }
 
-  async updateStep(recipeId, stepId, stepData) {
+  async updateStep(recipeId, stepId, data) {
     return this.request(`/recipes/${recipeId}/steps/${stepId}`, {
       method: 'PATCH',
-      body: JSON.stringify(stepData),
+      body: JSON.stringify(data),
     });
   }
 
@@ -1328,201 +700,102 @@ class ChefflowAPI {
     });
   }
 }
+```
 
-// Usage example
+### Usage Examples
+
+```javascript
 const api = new ChefflowAPI();
 
-// Example 1: Login and get recipes
-try {
-  const result = await api.login('johndoe', 'mypassword123');
-  console.log('Login successful:', result);
+// Login
+await api.login('johndoe', 'password123');
 
-  const recipes = await api.getRecipes();
-  console.log('User recipes:', recipes);
-} catch (error) {
-  console.error('Error:', error.message);
-}
-
-// Example 2: Create complete recipe (atomic transaction)
-try {
-  const newRecipe = await api.createRecipe({
-    title: "Pasta Carbonara",
-    description: "Classic Italian recipe",
-    servings: 4,
-    prepTime: 10,
-    cookTime: 15,
-    ingredients: [
-      { ingredientName: "Spaghetti", quantity: 400, unit: "GRAM" },
-      { ingredientName: "Eggs", quantity: 4, unit: "UNIT" },
-      { ingredientName: "Parmesan cheese", quantity: 100, unit: "GRAM" },
-      { ingredientName: "Pancetta", quantity: 150, unit: "GRAM" }
-    ],
-    steps: [
-      { instruction: "Boil salted water in a large pot", duration: 5 },
-      { instruction: "Cook pasta according to instructions", duration: 10 },
-      { instruction: "Fry pancetta until crispy", duration: 5 },
-      { instruction: "Beat eggs with grated cheese", duration: 2 },
-      { instruction: "Mix everything and serve immediately", duration: 3 }
-    ]
-  });
-
-  console.log('Recipe created successfully:', newRecipe);
-  console.log(`Created ${newRecipe.ingredients.length} ingredients`);
-  console.log(`Created ${newRecipe.steps.length} steps`);
-} catch (error) {
-  console.error('Error creating recipe:', error.message);
-  // If it fails, NOTHING was created (atomic transaction)
-}
-
-// Example 3: Edit specific ingredient
-try {
-  await api.updateIngredient(recipeId, ingredientId, {
-    quantity: 500,  // Change quantity from 400g to 500g
-    notes: "Use whole wheat pasta"
-  });
-  console.log('Ingredient updated');
-} catch (error) {
-  console.error('Error:', error.message);
-}
-```
-
----
-
-## CORS Configuration
-
-The API is configured to accept requests from the following origins (configurable via `ALLOWED_ORIGINS`):
-
-- `http://localhost:3000` (default)
-- `http://localhost:5173` (Vite)
-- `http://localhost:4200` (Angular)
-
-**Allowed Methods**: GET, POST, PUT, PATCH, DELETE, OPTIONS
-
-**Allowed Headers**: Content-Type, Authorization
-
-**Credentials**: Enabled (required for cookies)
-
----
-
-## Rate Limiting
-
-The API implements rate limiting to prevent abuse:
-
-- **Limit**: 10 requests per time window
-- **Window**: 60 seconds (1 minute)
-- **Scope**: Applies to all endpoints (including public ones)
-
-When the limit is exceeded, you'll receive a 429 Too Many Requests error.
-
-**Configuration** (environment variables):
-- `THROTTLE_TTL`: Window duration in milliseconds (default: 60000)
-- `THROTTLE_LIMIT`: Number of allowed requests (default: 10)
-
----
-
-## Important Notes
-
-1. **Password Hashing**: Passwords MUST be hashed on the client using SHA-256 before sending to the server.
-
-2. **HTTP-Only Cookies**: Authentication cookies are HTTP-only and secure, so they're not accessible from JavaScript.
-
-3. **Credentials**: ALWAYS include `credentials: 'include'` in fetch requests.
-
-4. **Token Refresh**: The access token expires in 15 minutes. Implement an interceptor to refresh automatically when receiving a 401.
-
-5. **Validation**: All data is validated automatically. Validation errors include specific details.
-
-6. **Atomic Transactions**: When creating a recipe with ingredients and steps, a database transaction is used. If any part fails (recipe, ingredient, or step), the entire operation is automatically canceled. This ensures you'll never have inconsistent data.
-
-7. **Cascade Delete**: When deleting a user, all their recipes are deleted. When deleting a recipe, all its ingredients and steps are automatically deleted.
-
-8. **Ownership**: You can only access, modify, and delete your own resources (recipes, ingredients, steps).
-
-9. **Automatic Numbering**:
-   - Ingredients are automatically ordered if you don't specify `order` (0, 1, 2...).
-   - Steps are automatically numbered with `stepNumber` (1, 2, 3...).
-
-10. **GET /recipes/:id**: Always returns ingredients and steps included. You don't need to make additional requests to get them.
-
----
-
-## Frequently Asked Questions
-
-### Can I create a recipe without ingredients or steps?
-
-Yes. The `ingredients` and `steps` arrays are completely optional. You can create an empty recipe and add details later:
-
-```javascript
+// Create complete recipe (atomic transaction)
 const recipe = await api.createRecipe({
-  title: "My Recipe",
-  servings: 4
+  title: "Pasta Carbonara",
+  servings: 4,
+  ingredients: [
+    { ingredientName: "Pasta", quantity: 400, unit: "GRAM" },
+    { ingredientName: "Eggs", quantity: 4, unit: "UNIT" }
+  ],
+  steps: [
+    { instruction: "Boil water", duration: 5 },
+    { instruction: "Cook pasta", duration: 10 }
+  ]
 });
-// Recipe created without ingredients or steps
-```
 
-### What happens if an ingredient creation fails when creating a complete recipe?
+// Update recipe title
+await api.updateRecipe(recipe.id, { title: "Updated Title" });
 
-The transaction is automatically canceled and **nothing** is created in the database. You'll receive an error explaining what went wrong, but you won't have inconsistent data.
-
-### How do I add ingredients to an existing recipe?
-
-Use the nested endpoint `POST /recipes/:recipeId/ingredients`:
-
-```javascript
-await api.addIngredient(recipeId, {
+// Add ingredient
+await api.addIngredient(recipe.id, {
   ingredientName: "Salt",
   quantity: 1,
   unit: "PINCH"
 });
+
+// Get recipe with all details
+const fullRecipe = await api.getRecipe(recipe.id);
+console.log(fullRecipe.ingredients); // Array of ingredients
+console.log(fullRecipe.steps);       // Array of steps
 ```
 
-### Can I update only one field of an ingredient without sending all the others?
+---
 
-Yes. PATCH endpoints are partial. Only send the fields you want to change:
+## Key Features
+
+### Atomic Transactions
+
+Creating a recipe with ingredients/steps uses a database transaction. All or nothing.
 
 ```javascript
-// Only change quantity
-await api.updateIngredient(recipeId, ingredientId, {
-  quantity: 500
+// If ANY part fails, NOTHING is created
+await api.createRecipe({
+  title: "Recipe",
+  ingredients: [...],  // If this fails, recipe isn't created
+  steps: [...]         // If this fails, nothing is created
 });
 ```
 
-### Does the order of ingredients and steps matter?
+### Automatic Numbering
 
-Yes. Ingredients are ordered by the `order` field (0, 1, 2...) and steps by `stepNumber` (1, 2, 3...). If you don't specify `order` when creating ingredients, it's automatically assigned by array index.
+- Ingredients: `order` auto-assigned (0, 1, 2...) if not provided
+- Steps: `stepNumber` auto-assigned (1, 2, 3...) always
 
-### Can I reorder steps after creating them?
+### Cascade Deletes
 
-Currently there's no specific endpoint for reordering. You would need to manually update the `stepNumber` of each step with PATCH, though this is not recommended. Best practice is to delete and recreate steps in the correct order if you need to significantly reorganize.
+- Delete user → All recipes deleted
+- Delete recipe → All ingredients/steps deleted
 
-### What happens to ingredients and steps when I delete a recipe?
+### Ownership Validation
 
-They're automatically deleted in cascade. You don't need to manually delete them one by one.
+All mutations validate user owns the resource. Returns 403 if not.
 
-### Can I get just basic recipe information without ingredients and steps?
+---
 
-No. The `GET /recipes/:id` endpoint always includes ingredients and steps. If you only need basic information, use `GET /recipes` which lists all recipes without nested details.
+## Quick Reference
 
-### How do I handle automatic token refresh?
-
-Implement an interceptor that detects 401 errors and automatically calls `/auth/refresh`:
-
-```javascript
-async request(endpoint, options = {}) {
-  try {
-    return await this._doRequest(endpoint, options);
-  } catch (error) {
-    if (error.statusCode === 401) {
-      // Token expired, try refresh
-      await this.refreshTokens();
-      // Retry original request
-      return await this._doRequest(endpoint, options);
-    }
-    throw error;
-  }
-}
-```
-
-### Why hash passwords on the client?
-
-So the plaintext password never travels over the network, even over HTTPS. It's an additional security layer. The backend re-hashes with bcrypt before storing.
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/auth/register` | POST | No | Create account |
+| `/auth/login` | POST | No | Login |
+| `/auth/logout` | POST | No | Logout |
+| `/auth/profile` | GET | Yes | Get profile |
+| `/auth/refresh` | GET | Yes | Refresh token |
+| `/auth/google` | GET | No | OAuth login |
+| `/users` | GET | Yes | List users |
+| `/users/me` | GET | Yes | Current user |
+| `/users/:username` | GET | Yes | Get user |
+| `/users/:username` | PATCH | Yes | Update user |
+| `/users/:username` | DELETE | Yes | Delete user |
+| `/recipes` | GET | Yes | List recipes |
+| `/recipes` | POST | Yes | Create recipe |
+| `/recipes/:id` | GET | Yes | Get recipe |
+| `/recipes/:id` | PATCH | Yes | Update recipe |
+| `/recipes/:id` | DELETE | Yes | Delete recipe |
+| `/recipes/:id/ingredients` | POST | Yes | Add ingredient |
+| `/recipes/:id/ingredients/:iid` | PATCH | Yes | Update ingredient |
+| `/recipes/:id/ingredients/:iid` | DELETE | Yes | Delete ingredient |
+| `/recipes/:id/steps` | POST | Yes | Add step |
+| `/recipes/:id/steps/:sid` | PATCH | Yes | Update step |
+| `/recipes/:id/steps/:sid` | DELETE | Yes | Delete step |
