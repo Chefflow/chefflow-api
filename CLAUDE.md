@@ -84,6 +84,10 @@ async login() { }
 2. **OAuth Flow**: Google OAuth → account linking if email exists → JWT tokens → redirect to frontend
 3. **Token Refresh**: `/auth/refresh` endpoint uses refresh token to get new access token
 
+**Cookie Configuration:**
+- Development (NODE_ENV !== 'production'): secure=false, sameSite='none' (allows HTTP localhost frontend)
+- Production (NODE_ENV === 'production'): secure=true, sameSite='lax' (requires HTTPS)
+
 **Strategies:**
 - `JwtStrategy` - Validates access tokens, extracts user from JWT payload
 - `RefreshTokenStrategy` - Validates refresh tokens for token renewal
@@ -92,7 +96,7 @@ async login() { }
 **Key Security Features:**
 - Passwords hashed with bcrypt (10 rounds)
 - Refresh tokens hashed before storing in database
-- httpOnly cookies with secure flag
+- httpOnly cookies with environment-dependent secure flag (false in dev, true in prod)
 - SameSite cookie protection (lax in prod, none in dev)
 - Account linking: OAuth users can link to existing local accounts via email
 
@@ -175,8 +179,9 @@ findAll(@CurrentUser('id') userId: number) {
 ### Cookie Management
 
 **Authentication Cookies:**
-- `accessToken` - 15 minutes, path: `/`, httpOnly, secure
-- `Refresh` - 7 days, path: `/auth/refresh`, httpOnly, secure
+- `accessToken` - 15 minutes, path: `/`, httpOnly, secure (environment-dependent)
+- `Refresh` - 7 days, path: `/auth/refresh`, httpOnly, secure (environment-dependent)
+- secure: false in development (allows HTTP localhost), true in production (HTTPS only)
 - SameSite: 'lax' in production, 'none' in development
 - Cookies set via `setAuthCookies()` helper in AuthController
 
@@ -430,8 +435,9 @@ E2E tests expect PostgreSQL running. Ensure DATABASE_URL is set correctly.
 - Ensure `ALLOWED_ORIGINS` includes frontend URL
 
 ### Cookie Issues in Development
-- Cookies use SameSite='none' in development (requires secure: true)
+- Cookies use SameSite='none' and secure=false in development (allows HTTP localhost)
 - Frontend must use `credentials: 'include'` in fetch/axios
+- For deployed dev backend with local frontend, ensure backend has NODE_ENV=development
 
 ## Development Standards
 

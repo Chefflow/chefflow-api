@@ -89,6 +89,7 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           maxAge: ACCESS_TOKEN_MAX_AGE,
           sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
@@ -100,6 +101,7 @@ describe('AuthController', () => {
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           path: REFRESH_TOKEN_PATH,
           sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
@@ -174,7 +176,7 @@ describe('AuthController', () => {
         'accessToken',
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           sameSite: 'none',
           path: '/',
         }),
@@ -183,7 +185,7 @@ describe('AuthController', () => {
         'Refresh',
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           sameSite: 'none',
           path: REFRESH_TOKEN_PATH,
         }),
@@ -233,6 +235,7 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           maxAge: ACCESS_TOKEN_MAX_AGE,
           sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),
@@ -244,6 +247,7 @@ describe('AuthController', () => {
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
+          secure: false, // false in test environment (NODE_ENV !== 'production')
           path: REFRESH_TOKEN_PATH,
           sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
         }),

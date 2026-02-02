@@ -23,7 +23,7 @@ paths: src/**/*.ts
 ## Cookie Security
 
 - **httpOnly**: Always true - prevents JavaScript access
-- **secure**: Always true - HTTPS only (works in dev with SameSite=none)
+- **secure**: Environment-dependent (false in development to allow HTTP localhost, true in production for HTTPS only)
 - **SameSite**:
   - Production: 'lax' (same-site requests)
   - Development: 'none' (cross-site allowed for localhost frontend)

@@ -60,7 +60,7 @@ paths: src/**/*.controller.ts
 
 ### Cookie Attributes
 - httpOnly: true (JavaScript cannot access)
-- secure: true (HTTPS only, works in dev with SameSite=none)
+- secure: false in development (allows HTTP localhost), true in production (HTTPS only)
 - sameSite: 'lax' (production) or 'none' (development)
 - path: specific to token type
 
