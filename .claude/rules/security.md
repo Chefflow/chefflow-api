@@ -23,10 +23,10 @@ paths: src/**/*.ts
 ## Cookie Security
 
 - **httpOnly**: Always true - prevents JavaScript access
-- **secure**: Environment-dependent (false in development to allow HTTP localhost, true in production for HTTPS only)
+- **secure**: Always true (requires HTTPS in both development and production)
 - **SameSite**:
-  - Production: 'lax' (same-site requests)
-  - Development: 'none' (cross-site allowed for localhost frontend)
+  - Production: 'lax' (same-site requests only)
+  - Development: 'none' (cross-site allowed for localhost frontend + remote HTTPS backend)
 - **Path Restrictions**: Refresh token cookie restricted to `/auth/refresh` path
 
 ## Input Validation

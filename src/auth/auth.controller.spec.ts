@@ -89,9 +89,9 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
+          sameSite: 'none',
         }),
       );
 
@@ -101,9 +101,9 @@ describe('AuthController', () => {
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
+          sameSite: 'none',
         }),
       );
 
@@ -176,7 +176,7 @@ describe('AuthController', () => {
         'accessToken',
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           sameSite: 'none',
           path: '/',
         }),
@@ -185,7 +185,7 @@ describe('AuthController', () => {
         'Refresh',
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           sameSite: 'none',
           path: REFRESH_TOKEN_PATH,
         }),
@@ -235,9 +235,9 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
+          sameSite: 'none',
         }),
       );
 
@@ -247,9 +247,9 @@ describe('AuthController', () => {
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: false, // false in test environment (NODE_ENV !== 'production')
+          secure: true,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
+          sameSite: 'none',
         }),
       );
 
@@ -335,7 +335,8 @@ describe('AuthController', () => {
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          sameSite: 'none', // 'none' in test environment (NODE_ENV !== 'production')
+          secure: true,
+          sameSite: 'none',
         }),
       );
       expect(res.cookie).toHaveBeenCalledWith(
@@ -343,6 +344,7 @@ describe('AuthController', () => {
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
+          secure: true,
           path: REFRESH_TOKEN_PATH,
         }),
       );
