@@ -85,8 +85,9 @@ async login() { }
 3. **Token Refresh**: `/auth/refresh` endpoint uses refresh token to get new access token
 
 **Cookie Configuration:**
-- Development (NODE_ENV !== 'production'): secure=false, sameSite='none' (allows HTTP localhost frontend)
-- Production (NODE_ENV === 'production'): secure=true, sameSite='lax' (requires HTTPS)
+- Local Development: secure=false, sameSite='none' (allows HTTP localhost)
+- Cross-Origin Development (FORCE_CROSS_ORIGIN_COOKIES=true): secure=true, sameSite='none' (localhost frontend + remote backend)
+- Production (NODE_ENV=production): secure=true, sameSite='lax' (requires HTTPS)
 
 **Strategies:**
 - `JwtStrategy` - Validates access tokens, extracts user from JWT payload
@@ -198,6 +199,7 @@ findAll(@CurrentUser('id') userId: number) {
 **Optional:**
 - `PORT` (default: 3000, typically use 4000 in dev)
 - `NODE_ENV` (production or development, affects cookie SameSite and CSP)
+- `FORCE_CROSS_ORIGIN_COOKIES` (true/false, forces secure=true + sameSite=none for localhost frontend + remote backend)
 - `THROTTLE_TTL` (default: 60000ms / 60 seconds)
 - `THROTTLE_LIMIT` (default: 10 requests per TTL)
 - `JWT_EXPIRES_IN` (default: 15m for access tokens)

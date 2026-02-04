@@ -41,19 +41,25 @@ export class AuthController {
     refreshToken: string,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
+    const forceCrossOrigin = process.env.FORCE_CROSS_ORIGIN_COOKIES === 'true';
+
+    const cookieConfig = forceCrossOrigin
+      ? { secure: true, sameSite: 'none' as const }
+      : {
+          secure: isProduction,
+          sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
+        };
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'lax' : 'none',
+      ...cookieConfig,
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
 
     res.cookie('Refresh', refreshToken, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'lax' : 'none',
+      ...cookieConfig,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
@@ -129,18 +135,24 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
     const isProduction = process.env.NODE_ENV === 'production';
+    const forceCrossOrigin = process.env.FORCE_CROSS_ORIGIN_COOKIES === 'true';
+
+    const cookieConfig = forceCrossOrigin
+      ? { secure: true, sameSite: 'none' as const }
+      : {
+          secure: isProduction,
+          sameSite: (isProduction ? 'lax' : 'none') as 'lax' | 'none',
+        };
 
     res.clearCookie('accessToken', {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'lax' : 'none',
+      ...cookieConfig,
       path: '/',
     });
 
     res.clearCookie('Refresh', {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'lax' : 'none',
+      ...cookieConfig,
       path: '/auth/refresh',
     });
 
