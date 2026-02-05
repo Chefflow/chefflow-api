@@ -41,22 +41,28 @@ export class AuthController {
     refreshToken: string,
   ) {
     const isProduction = process.env.NODE_ENV === 'production';
+    const forceCrossOrigin = process.env.FORCE_CROSS_ORIGIN_COOKIES === 'true';
 
-    // For development with remote backend (localhost frontend + HTTPS backend),
-    // use sameSite: 'none' with secure: true
-    // For production, use sameSite: 'lax' with secure: true
+    // Cookie security configuration based on environment and deployment scenario:
+    // 1. Production: secure=true, sameSite='lax' (standard production setup)
+    // 2. Development + FORCE_CROSS_ORIGIN_COOKIES: secure=true, sameSite='none' (localhost -> HTTPS backend)
+    // 3. Development (default): secure=false, sameSite='lax' (HTTP development)
+    // Note: sameSite='none' REQUIRES secure=true per browser spec
+    const useSecureCookies = isProduction || forceCrossOrigin;
+    const sameSiteValue = forceCrossOrigin ? 'none' : 'lax';
+
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: isProduction ? 'lax' : 'none',
+      secure: useSecureCookies,
+      sameSite: sameSiteValue,
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
 
     res.cookie('Refresh', refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: isProduction ? 'lax' : 'none',
+      secure: useSecureCookies,
+      sameSite: sameSiteValue,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
