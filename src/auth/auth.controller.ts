@@ -59,7 +59,9 @@ export class AuthController {
       path: '/',
     });
 
-    res.cookie('Refresh', refreshToken, {
+    // Refresh token is intentionally restricted to /auth/refresh path (security best practice)
+    // This follows the principle of least privilege - the token is only accessible where needed
+    res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: useSecureCookies,
       sameSite: sameSiteValue,
@@ -146,7 +148,7 @@ export class AuthController {
       path: '/',
     });
 
-    res.clearCookie('Refresh', {
+    res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: true,
       sameSite: isProduction ? 'lax' : 'none',

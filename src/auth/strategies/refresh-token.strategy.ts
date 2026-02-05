@@ -27,14 +27,14 @@ export class RefreshTokenStrategy extends PassportStrategy(
   }
 
   private static extractJwtFromCookie(req: Request): string | null {
-    if (req.cookies && req.cookies.Refresh) {
-      return req.cookies.Refresh;
+    if (req.cookies && req.cookies.refreshToken) {
+      return req.cookies.refreshToken;
     }
     return null;
   }
 
   validate(req: Request, payload: RefreshTokenPayload) {
-    const refreshToken = req.cookies.Refresh;
+    const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) throw new ForbiddenException('Access Denied');
 
     return {

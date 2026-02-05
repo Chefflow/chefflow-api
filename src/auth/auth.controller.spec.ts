@@ -84,26 +84,29 @@ describe('AuthController', () => {
       const result = await controller.login(loginDto, res);
 
       // Assert - verify access token cookie
+      // Note: Tests run without NODE_ENV=production or FORCE_CROSS_ORIGIN_COOKIES,
+      // so cookies use development defaults (secure: false, sameSite: 'lax')
       expect(res.cookie).toHaveBeenCalledWith(
         'accessToken',
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'none',
+          sameSite: 'lax',
+          path: '/',
         }),
       );
 
       // Assert - verify refresh token cookie
       expect(res.cookie).toHaveBeenCalledWith(
-        'Refresh',
+        'refreshToken',
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'none',
+          sameSite: 'lax',
         }),
       );
 
@@ -153,7 +156,7 @@ describe('AuthController', () => {
 
       // Assert - verify refresh token cookie
       expect(res.cookie).toHaveBeenCalledWith(
-        'Refresh',
+        'refreshToken',
         'new-refresh-token',
         expect.objectContaining({
           httpOnly: true,
@@ -182,7 +185,7 @@ describe('AuthController', () => {
         }),
       );
       expect(res.clearCookie).toHaveBeenCalledWith(
-        'Refresh',
+        'refreshToken',
         expect.objectContaining({
           httpOnly: true,
           secure: true,
@@ -230,26 +233,29 @@ describe('AuthController', () => {
       expect(authService.register).toHaveBeenCalledWith(registerDto);
 
       // Assert - verify access token cookie
+      // Note: Tests run without NODE_ENV=production or FORCE_CROSS_ORIGIN_COOKIES,
+      // so cookies use development defaults (secure: false, sameSite: 'lax')
       expect(res.cookie).toHaveBeenCalledWith(
         'accessToken',
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false,
           maxAge: ACCESS_TOKEN_MAX_AGE,
-          sameSite: 'none',
+          sameSite: 'lax',
+          path: '/',
         }),
       );
 
       // Assert - verify refresh token cookie
       expect(res.cookie).toHaveBeenCalledWith(
-        'Refresh',
+        'refreshToken',
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false,
           path: REFRESH_TOKEN_PATH,
-          sameSite: 'none',
+          sameSite: 'lax',
         }),
       );
 
@@ -330,22 +336,26 @@ describe('AuthController', () => {
       expect(authService.loginWithOAuth).toHaveBeenCalledWith(user);
 
       // Assert - verify cookies were set
+      // Note: Tests run without NODE_ENV=production or FORCE_CROSS_ORIGIN_COOKIES,
+      // so cookies use development defaults (secure: false, sameSite: 'lax')
       expect(res.cookie).toHaveBeenCalledWith(
         'accessToken',
         authResponse.accessToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
-          sameSite: 'none',
+          secure: false,
+          sameSite: 'lax',
+          path: '/',
         }),
       );
       expect(res.cookie).toHaveBeenCalledWith(
-        'Refresh',
+        'refreshToken',
         authResponse.refreshToken,
         expect.objectContaining({
           httpOnly: true,
-          secure: true,
+          secure: false,
           path: REFRESH_TOKEN_PATH,
+          sameSite: 'lax',
         }),
       );
 
