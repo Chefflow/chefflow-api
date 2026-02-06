@@ -6,6 +6,6 @@ export default defineConfig({
     // In runtime, docker-compose.yml passes the real DATABASE_URL
     url:
       process.env.DATABASE_URL ||
-      'postgresql://user:password@localhost:5432/chefflow?schema=public',
+      'postgresql://postgres:postgres@localhost:5432/chefflow?schema=public',
   },
 });

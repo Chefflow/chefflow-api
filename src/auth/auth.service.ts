@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  InternalServerErrorException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +8,12 @@ import * as bcrypt from 'bcrypt';
 import { AuthProvider, User } from '@prisma/client';
 import { UserEntity } from '../users/entities/user.entity';
 import { OAuthUserData } from './dto/oauth-user.dto';
+import {
+  UsernameTakenException,
+  EmailExistsException,
+  InvalidCredentialsException,
+  AuthServerErrorException,
+} from '../common/exceptions/auth.exception';
 @Injectable()
 export class AuthService {
   constructor(
@@ -34,9 +34,15 @@ export class AuthService {
 
       if (existingUser) {
         if (existingUser.username === username) {
-          throw new ConflictException('Username already exists');
+          // Generate username suggestions
+          const suggestions = [
+            `${username}_${Math.floor(Math.random() * 1000)}`,
+            `${username}${new Date().getFullYear()}`,
+            `${username}_user`,
+          ];
+          throw new UsernameTakenException(suggestions);
         }
-        throw new ConflictException('Email already exists');
+        throw new EmailExistsException();
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -55,10 +61,13 @@ export class AuthService {
       await this.updateRefreshToken(user.username, tokens.refreshToken);
       return { ...tokens, user: new UserEntity(user) };
     } catch (error) {
-      if (error instanceof ConflictException) {
+      if (
+        error instanceof UsernameTakenException ||
+        error instanceof EmailExistsException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to register user');
+      throw new AuthServerErrorException('Failed to register user');
     }
   }
 
@@ -71,23 +80,23 @@ export class AuthService {
       });
 
       if (!user || !user.passwordHash) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new InvalidCredentialsException();
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
       if (!isPasswordValid) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new InvalidCredentialsException();
       }
 
       const tokens = await this.getTokens(user.username, user.username);
       await this.updateRefreshToken(user.username, tokens.refreshToken);
       return { ...tokens, user: new UserEntity(user) };
     } catch (error) {
-      if (error instanceof UnauthorizedException) {
+      if (error instanceof InvalidCredentialsException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to login');
+      throw new AuthServerErrorException('Failed to login');
     }
   }
 
@@ -107,15 +116,18 @@ export class AuthService {
       where: { username },
     });
 
-    if (!user || !user.hashedRefreshToken)
-      throw new ForbiddenException('Access Denied');
+    if (!user || !user.hashedRefreshToken) {
+      throw new InvalidCredentialsException();
+    }
 
     const refreshTokenMatches = await bcrypt.compare(
       refreshToken,
       user.hashedRefreshToken,
     );
 
-    if (!refreshTokenMatches) throw new ForbiddenException('Access Denied');
+    if (!refreshTokenMatches) {
+      throw new InvalidCredentialsException();
+    }
 
     const tokens = await this.getTokens(user.username, user.username);
     await this.updateRefreshToken(user.username, tokens.refreshToken);

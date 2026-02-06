@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RecipesModule } from './recipes/recipes.module';
 import { RecipeStepsModule } from './recipe-steps/recipe-steps.module';
 import { RecipeIngredientsModule } from './recipe-ingredients/recipe-ingredients.module';
+import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 
 @Module({
   imports: [
@@ -38,6 +39,10 @@ import { RecipeIngredientsModule } from './recipe-ingredients/recipe-ingredients
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: AuthExceptionFilter,
     },
   ],
 })

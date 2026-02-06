@@ -3,8 +3,12 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import {
+  InvalidCredentialsException,
+  UsernameTakenException,
+  EmailExistsException,
+} from '../common/exceptions/auth.exception';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -84,31 +88,31 @@ describe('AuthService', () => {
   });
 
   describe('refreshTokens', () => {
-    it('should throw ForbiddenException if user not found', async () => {
+    it('should throw InvalidCredentialsException if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
       await expect(service.refreshTokens('username', 'token')).rejects.toThrow(
-        ForbiddenException,
+        InvalidCredentialsException,
       );
     });
 
-    it('should throw ForbiddenException if user has no refresh token', async () => {
+    it('should throw InvalidCredentialsException if user has no refresh token', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         username: 'username',
         hashedRefreshToken: null,
       });
       await expect(service.refreshTokens('username', 'token')).rejects.toThrow(
-        ForbiddenException,
+        InvalidCredentialsException,
       );
     });
 
-    it('should throw ForbiddenException if token mismatch', async () => {
+    it('should throw InvalidCredentialsException if token mismatch', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         username: 'username',
         hashedRefreshToken: 'hash',
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
       await expect(service.refreshTokens('username', 'token')).rejects.toThrow(
-        ForbiddenException,
+        InvalidCredentialsException,
       );
     });
 
@@ -182,7 +186,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
     });
 
-    it('should throw ConflictException if username exists', async () => {
+    it('should throw UsernameTakenException if username exists', async () => {
       const registerDto = {
         username: 'existing',
         email: 'new@example.com',
@@ -196,11 +200,11 @@ describe('AuthService', () => {
       });
 
       await expect(service.register(registerDto)).rejects.toThrow(
-        'Username already exists',
+        UsernameTakenException,
       );
     });
 
-    it('should throw ConflictException if email exists', async () => {
+    it('should throw EmailExistsException if email exists', async () => {
       const registerDto = {
         username: 'newuser',
         email: 'existing@example.com',
@@ -214,7 +218,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.register(registerDto)).rejects.toThrow(
-        'Email already exists',
+        EmailExistsException,
       );
     });
   });
@@ -246,7 +250,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
     });
 
-    it('should throw UnauthorizedException if user not found', async () => {
+    it('should throw InvalidCredentialsException if user not found', async () => {
       const loginDto = {
         username: 'nonexistent',
         password: 'password123',
@@ -255,11 +259,11 @@ describe('AuthService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
+        InvalidCredentialsException,
       );
     });
 
-    it('should throw UnauthorizedException if password is invalid', async () => {
+    it('should throw InvalidCredentialsException if password is invalid', async () => {
       const loginDto = {
         username: 'testuser',
         password: 'wrongpassword',
@@ -274,11 +278,11 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
+        InvalidCredentialsException,
       );
     });
 
-    it('should throw UnauthorizedException if user has no password (OAuth user)', async () => {
+    it('should throw InvalidCredentialsException if user has no password (OAuth user)', async () => {
       const loginDto = {
         username: 'oauthuser',
         password: 'password123',
@@ -293,7 +297,7 @@ describe('AuthService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(user);
 
       await expect(service.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
+        InvalidCredentialsException,
       );
     });
   });

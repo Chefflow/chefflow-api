@@ -9,6 +9,7 @@ import {
   Res,
   Req,
   UseFilters,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { User } from '@prisma/client';
@@ -22,6 +23,8 @@ import { UserEntity } from '../users/entities/user.entity';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RefreshTokenExceptionFilter } from './filters/refresh-token-exception.filter';
+import { AuthExceptionFilter } from '../common/filters/auth-exception.filter';
+import { ValidationErrorException } from '../common/exceptions/auth.exception';
 
 interface RequestWithCsrfToken extends Request {
   csrfToken?: string;
@@ -32,6 +35,7 @@ interface RequestWithUserAndRefreshToken extends Request {
 }
 
 @Controller('auth')
+@UseFilters(AuthExceptionFilter)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -125,7 +129,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     if (!req.user?.username || !req.user?.refreshToken) {
-      throw new Error('Invalid user or refresh token');
+      throw new ValidationErrorException('Invalid user or refresh token');
     }
     const tokens = await this.authService.refreshTokens(
       req.user.username,
