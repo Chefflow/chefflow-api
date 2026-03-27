@@ -54,11 +54,13 @@ export class AuthController {
     // Note: sameSite='none' REQUIRES secure=true per browser spec
     const useSecureCookies = isProduction || forceCrossOrigin;
     const sameSiteValue = forceCrossOrigin ? 'none' : 'lax';
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: useSecureCookies,
       sameSite: sameSiteValue,
+      domain: cookieDomain,
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
@@ -69,6 +71,7 @@ export class AuthController {
       httpOnly: true,
       secure: useSecureCookies,
       sameSite: sameSiteValue,
+      domain: cookieDomain,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
     });
