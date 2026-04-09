@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RecipesModule } from './recipes/recipes.module';
 import { RecipeStepsModule } from './recipe-steps/recipe-steps.module';
 import { RecipeIngredientsModule } from './recipe-ingredients/recipe-ingredients.module';
+import { WeeklyPlanningsModule } from './weekly-plannings/weekly-plannings.module';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 
 @Module({
@@ -29,6 +30,7 @@ import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
     RecipesModule,
     RecipeStepsModule,
     RecipeIngredientsModule,
+    WeeklyPlanningsModule,
   ],
   controllers: [AppController],
   providers: [
