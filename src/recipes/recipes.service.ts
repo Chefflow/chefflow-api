@@ -2,7 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
+import { RecipeStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
@@ -18,16 +20,28 @@ export class RecipesService {
   ) {}
 
   async create(userId: number, recipeDto: CreateRecipeDto) {
+    const status = recipeDto.status ?? RecipeStatus.PUBLISHED;
+
+    if (status === RecipeStatus.PUBLISHED) {
+      this.validatePublishable({
+        title: recipeDto.title,
+        prepTime: recipeDto.prepTime,
+        ingredients: recipeDto.ingredients ?? [],
+        steps: recipeDto.steps ?? [],
+      });
+    }
+
     return await this.prisma.$transaction(async (tx) => {
       const recipe = await tx.recipe.create({
         data: {
           userId,
-          title: recipeDto.title,
+          title: recipeDto.title ?? null,
           description: recipeDto.description,
           servings: recipeDto.servings ?? 1,
           prepTime: recipeDto.prepTime,
           cookTime: recipeDto.cookTime,
           imageUrl: recipeDto.imageUrl,
+          status,
         },
       });
 
@@ -64,8 +78,23 @@ export class RecipesService {
 
   async findAll(userId: number) {
     return await this.prisma.recipe.findMany({
-      where: { userId },
+      where: { userId, status: RecipeStatus.PUBLISHED },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAllDrafts(userId: number) {
+    return await this.prisma.recipe.findMany({
+      where: { userId, status: RecipeStatus.DRAFT },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        ingredients: {
+          orderBy: { order: 'asc' },
+        },
+        steps: {
+          orderBy: { stepNumber: 'asc' },
+        },
+      },
     });
   }
 
@@ -94,11 +123,31 @@ export class RecipesService {
   }
 
   async update(userId: number, recipeId: number, newRecipe: UpdateRecipeDto) {
-    await this.findOne(userId, recipeId);
+    const existing = await this.findOne(userId, recipeId);
+
+    if (
+      newRecipe.status === RecipeStatus.PUBLISHED &&
+      existing.status !== RecipeStatus.PUBLISHED
+    ) {
+      this.validatePublishable({
+        title: newRecipe.title ?? existing.title,
+        prepTime: newRecipe.prepTime ?? existing.prepTime,
+        ingredients: existing.ingredients ?? [],
+        steps: existing.steps ?? [],
+      });
+    }
 
     return await this.prisma.recipe.update({
       where: { id: recipeId },
       data: newRecipe,
+      include: {
+        ingredients: {
+          orderBy: { order: 'asc' },
+        },
+        steps: {
+          orderBy: { stepNumber: 'asc' },
+        },
+      },
     });
   }
 
@@ -108,5 +157,31 @@ export class RecipesService {
     await this.prisma.recipe.delete({
       where: { id: recipeId },
     });
+  }
+
+  private validatePublishable(data: {
+    title?: string | null;
+    prepTime?: number | null;
+    ingredients: { length: number };
+    steps: { length: number };
+  }): void {
+    const errors: string[] = [];
+
+    if (!data.title?.trim()) {
+      errors.push('title is required to publish');
+    }
+    if (data.prepTime == null) {
+      errors.push('prepTime is required to publish');
+    }
+    if (data.ingredients.length === 0) {
+      errors.push('at least 1 ingredient is required to publish');
+    }
+    if (data.steps.length === 0) {
+      errors.push('at least 1 step is required to publish');
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors);
+    }
   }
 }

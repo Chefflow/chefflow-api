@@ -1,11 +1,17 @@
-import { IsString, IsOptional, IsInt, Min, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, IsArray, ValidateNested, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RecipeStatus } from '@prisma/client';
 import { CreateRecipeIngredientDto } from '../../recipe-ingredients/dto/create-recipe-ingredient.dto';
 import { CreateRecipeStepDto } from '../../recipe-steps/dto/create-recipe-step.dto';
 
 export class CreateRecipeDto {
+  @IsOptional()
   @IsString()
-  title!: string;
+  title?: string;
+
+  @IsOptional()
+  @IsEnum(RecipeStatus)
+  status?: RecipeStatus;
 
   @IsOptional()
   @IsString()

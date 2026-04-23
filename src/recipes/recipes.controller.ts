@@ -41,6 +41,14 @@ export class RecipesController {
     return recipes.map((recipe) => new RecipeEntity(recipe));
   }
 
+  @Get('drafts')
+  async findAllDrafts(
+    @CurrentUser('id') userId: number,
+  ): Promise<RecipeEntity[]> {
+    const drafts = await this.recipesService.findAllDrafts(userId);
+    return drafts.map((draft) => new RecipeEntity(draft));
+  }
+
   @Get(':id')
   async findOne(
     @CurrentUser('id') userId: number,

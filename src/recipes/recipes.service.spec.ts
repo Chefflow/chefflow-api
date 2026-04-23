@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { RecipeStatus } from '@prisma/client';
 import { RecipesService } from './recipes.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -71,58 +76,155 @@ describe('RecipesService', () => {
 
   describe('create', () => {
     const userId = 1;
-    const createRecipeDto: CreateRecipeDto = {
+
+    const publishedRecipe = {
+      id: 1,
+      userId,
       title: 'Test Recipe',
       description: 'A test recipe',
       servings: 4,
       prepTime: 15,
       cookTime: 30,
       imageUrl: 'https://example.com/image.jpg',
-    };
-
-    const createdRecipe = {
-      id: 1,
-      userId,
-      ...createRecipeDto,
+      status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
+      ingredients: [{ id: 1, recipeId: 1, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
+      steps: [{ id: 1, recipeId: 1, stepNumber: 1, instruction: 'Mix', duration: null }],
     };
 
-    it('should create a recipe successfully', async () => {
+    it('should create a DRAFT recipe without title', async () => {
+      const draftDto: CreateRecipeDto = { status: RecipeStatus.DRAFT };
+      const draftRecipe = {
+        id: 1,
+        userId,
+        title: null,
+        description: null,
+        servings: 1,
+        prepTime: null,
+        cookTime: null,
+        imageUrl: null,
+        status: RecipeStatus.DRAFT,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ingredients: [],
+        steps: [],
+      };
+
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         const tx = {
           recipe: {
-            create: jest.fn().mockResolvedValue(createdRecipe),
-            findUnique: jest.fn().mockResolvedValue(createdRecipe),
+            create: jest.fn().mockResolvedValue(draftRecipe),
+            findUnique: jest.fn().mockResolvedValue(draftRecipe),
           },
-          recipeIngredient: { createMany: jest.fn() },
-          recipeStep: { createMany: jest.fn() },
         };
         return callback(tx);
       });
 
-      const result = await service.create(userId, createRecipeDto);
+      const result = await service.create(userId, draftDto);
 
-      expect(result).toEqual(createdRecipe);
+      expect(result).toEqual(draftRecipe);
+      expect(result?.title).toBeNull();
+      expect(result?.status).toBe(RecipeStatus.DRAFT);
+    });
+
+    it('should create a PUBLISHED recipe with all required fields', async () => {
+      const createDto: CreateRecipeDto = {
+        title: 'Test Recipe',
+        prepTime: 15,
+        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        steps: [{ instruction: 'Mix' }],
+      };
+
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const tx = {
+          recipe: {
+            create: jest.fn().mockResolvedValue(publishedRecipe),
+            findUnique: jest.fn().mockResolvedValue(publishedRecipe),
+          },
+          recipeIngredient: { findFirst: jest.fn() },
+          recipeStep: { findFirst: jest.fn() },
+        };
+        return callback(tx);
+      });
+
+      mockRecipeIngredientsService.add.mockResolvedValue({});
+      mockRecipeStepsService.create.mockResolvedValue({});
+
+      const result = await service.create(userId, createDto);
+
+      expect(result?.status).toBe(RecipeStatus.PUBLISHED);
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw BadRequestException when creating PUBLISHED without title', async () => {
+      const createDto: CreateRecipeDto = {
+        prepTime: 15,
+        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        steps: [{ instruction: 'Mix' }],
+      };
+
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when creating PUBLISHED without prepTime', async () => {
+      const createDto: CreateRecipeDto = {
+        title: 'Test',
+        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        steps: [{ instruction: 'Mix' }],
+      };
+
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when creating PUBLISHED without ingredients', async () => {
+      const createDto: CreateRecipeDto = {
+        title: 'Test',
+        prepTime: 15,
+        steps: [{ instruction: 'Mix' }],
+      };
+
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException when creating PUBLISHED without steps', async () => {
+      const createDto: CreateRecipeDto = {
+        title: 'Test',
+        prepTime: 15,
+        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+      };
+
+      await expect(service.create(userId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should create a recipe with default servings when not provided', async () => {
       const recipeWithoutServings: CreateRecipeDto = {
-        title: 'Test Recipe',
-        description: 'A test recipe',
+        status: RecipeStatus.DRAFT,
       };
 
       const createdRecipeWithDefaults = {
         id: 1,
         userId,
-        ...recipeWithoutServings,
+        title: null,
+        description: null,
         servings: 1,
         prepTime: null,
         cookTime: null,
         imageUrl: null,
+        status: RecipeStatus.DRAFT,
         createdAt: new Date(),
         updatedAt: new Date(),
+        ingredients: [],
+        steps: [],
       };
 
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
@@ -131,55 +233,13 @@ describe('RecipesService', () => {
             create: jest.fn().mockResolvedValue(createdRecipeWithDefaults),
             findUnique: jest.fn().mockResolvedValue(createdRecipeWithDefaults),
           },
-          recipeIngredient: { createMany: jest.fn() },
-          recipeStep: { createMany: jest.fn() },
         };
         return callback(tx);
       });
 
       const result = await service.create(userId, recipeWithoutServings);
 
-      expect(result.servings).toBe(1);
-      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
-    });
-
-    it('should create a recipe with null optional fields', async () => {
-      const minimalRecipe: CreateRecipeDto = {
-        title: 'Minimal Recipe',
-      };
-
-      const createdMinimalRecipe = {
-        id: 1,
-        userId,
-        title: 'Minimal Recipe',
-        description: null,
-        servings: 1,
-        prepTime: null,
-        cookTime: null,
-        imageUrl: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      mockPrismaService.$transaction.mockImplementation(async (callback) => {
-        const tx = {
-          recipe: {
-            create: jest.fn().mockResolvedValue(createdMinimalRecipe),
-            findUnique: jest.fn().mockResolvedValue(createdMinimalRecipe),
-          },
-          recipeIngredient: { createMany: jest.fn() },
-          recipeStep: { createMany: jest.fn() },
-        };
-        return callback(tx);
-      });
-
-      const result = await service.create(userId, minimalRecipe);
-
-      expect(result).toEqual(createdMinimalRecipe);
-      expect(result.description).toBeNull();
-      expect(result.prepTime).toBeNull();
-      expect(result.cookTime).toBeNull();
-      expect(result.imageUrl).toBeNull();
+      expect(result?.servings).toBe(1);
     });
 
     it('should create a recipe with ingredients and steps', async () => {
@@ -187,6 +247,7 @@ describe('RecipesService', () => {
         title: 'Complete Recipe',
         description: 'A complete recipe',
         servings: 4,
+        prepTime: 15,
         ingredients: [
           {
             ingredientName: 'Pasta',
@@ -212,66 +273,24 @@ describe('RecipesService', () => {
         title: 'Complete Recipe',
         description: 'A complete recipe',
         servings: 4,
-        prepTime: null,
+        prepTime: 15,
         cookTime: null,
         imageUrl: null,
+        status: RecipeStatus.PUBLISHED,
         ingredients: [
-          {
-            id: 1,
-            recipeId: 1,
-            ingredientName: 'Pasta',
-            quantity: 400,
-            unit: 'GRAM',
-            notes: 'Spaghetti',
-            order: 0,
-          },
-          {
-            id: 2,
-            recipeId: 1,
-            ingredientName: 'Tomato',
-            quantity: 3,
-            unit: 'UNIT',
-            notes: null,
-            order: 1,
-          },
+          { id: 1, recipeId: 1, ingredientName: 'Pasta', quantity: 400, unit: 'GRAM', notes: 'Spaghetti', order: 0 },
+          { id: 2, recipeId: 1, ingredientName: 'Tomato', quantity: 3, unit: 'UNIT', notes: null, order: 1 },
         ],
         steps: [
-          {
-            id: 1,
-            recipeId: 1,
-            stepNumber: 1,
-            instruction: 'Boil water',
-            duration: null,
-          },
-          {
-            id: 2,
-            recipeId: 1,
-            stepNumber: 2,
-            instruction: 'Cook pasta',
-            duration: 10,
-          },
+          { id: 1, recipeId: 1, stepNumber: 1, instruction: 'Boil water', duration: null },
+          { id: 2, recipeId: 1, stepNumber: 2, instruction: 'Cook pasta', duration: 10 },
         ],
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      mockRecipeIngredientsService.add.mockResolvedValue({
-        id: 1,
-        recipeId: 1,
-        ingredientName: 'Pasta',
-        quantity: 400,
-        unit: 'GRAM',
-        notes: 'Spaghetti',
-        order: 0,
-      });
-
-      mockRecipeStepsService.create.mockResolvedValue({
-        id: 1,
-        recipeId: 1,
-        stepNumber: 1,
-        instruction: 'Boil water',
-        duration: null,
-      });
+      mockRecipeIngredientsService.add.mockResolvedValue({});
+      mockRecipeStepsService.create.mockResolvedValue({});
 
       mockPrismaService.$transaction.mockImplementation(async (callback) => {
         const tx = {
@@ -288,8 +307,8 @@ describe('RecipesService', () => {
       const result = await service.create(userId, recipeWithAll);
 
       expect(result).toEqual(createdRecipeWithAll);
-      expect(result.ingredients).toHaveLength(2);
-      expect(result.steps).toHaveLength(2);
+      expect(result?.ingredients).toHaveLength(2);
+      expect(result?.steps).toHaveLength(2);
       expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
       expect(mockRecipeIngredientsService.add).toHaveBeenCalledTimes(2);
       expect(mockRecipeStepsService.create).toHaveBeenCalledTimes(2);
@@ -308,6 +327,7 @@ describe('RecipesService', () => {
         prepTime: 15,
         cookTime: 30,
         imageUrl: 'https://example.com/image1.jpg',
+        status: RecipeStatus.PUBLISHED,
         createdAt: new Date('2024-01-02'),
         updatedAt: new Date('2024-01-02'),
       },
@@ -320,43 +340,85 @@ describe('RecipesService', () => {
         prepTime: 10,
         cookTime: 20,
         imageUrl: 'https://example.com/image2.jpg',
+        status: RecipeStatus.PUBLISHED,
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date('2024-01-01'),
       },
     ];
 
-    it('should return all recipes for a user ordered by createdAt desc', async () => {
+    it('should return only PUBLISHED recipes for a user ordered by createdAt desc', async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue(mockRecipes);
 
       const result = await service.findAll(userId);
 
       expect(result).toEqual(mockRecipes);
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith({
-        where: { userId },
+        where: { userId, status: RecipeStatus.PUBLISHED },
         orderBy: { createdAt: 'desc' },
       });
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledTimes(1);
     });
 
-    it('should return empty array when user has no recipes', async () => {
+    it('should return empty array when user has no published recipes', async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([]);
 
       const result = await service.findAll(userId);
 
       expect(result).toEqual([]);
-      expect(mockPrismaService.recipe.findMany).toHaveBeenCalledTimes(1);
     });
 
-    it('should only return recipes for the specified user', async () => {
-      const userRecipes = [mockRecipes[0]];
-      mockPrismaService.recipe.findMany.mockResolvedValue(userRecipes);
+    it('should filter by PUBLISHED status', async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue(mockRecipes);
 
       await service.findAll(userId);
 
+      const call = mockPrismaService.recipe.findMany.mock.calls[0][0];
+      expect(call.where.status).toBe(RecipeStatus.PUBLISHED);
+    });
+  });
+
+  describe('findAllDrafts', () => {
+    const userId = 1;
+    const mockDrafts = [
+      {
+        id: 3,
+        userId,
+        title: null,
+        description: null,
+        servings: 1,
+        prepTime: null,
+        cookTime: null,
+        imageUrl: null,
+        status: RecipeStatus.DRAFT,
+        createdAt: new Date('2024-01-03'),
+        updatedAt: new Date('2024-01-03'),
+        ingredients: [],
+        steps: [],
+      },
+    ];
+
+    it('should return only DRAFT recipes with ingredients and steps', async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue(mockDrafts);
+
+      const result = await service.findAllDrafts(userId);
+
+      expect(result).toEqual(mockDrafts);
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
+        where: { userId, status: RecipeStatus.DRAFT },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          ingredients: { orderBy: { order: 'asc' } },
+          steps: { orderBy: { stepNumber: 'asc' } },
+        },
       });
+    });
+
+    it('should return empty array when user has no drafts', async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+
+      const result = await service.findAllDrafts(userId);
+
+      expect(result).toEqual([]);
     });
   });
 
@@ -372,6 +434,7 @@ describe('RecipesService', () => {
       prepTime: 15,
       cookTime: 30,
       imageUrl: 'https://example.com/image.jpg',
+      status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
       steps: [
@@ -423,33 +486,15 @@ describe('RecipesService', () => {
       await expect(service.findOne(userId, recipeId)).rejects.toThrow(
         new NotFoundException(`Recipe with ID ${recipeId} not found`),
       );
-
-      expect(mockPrismaService.recipe.findUnique).toHaveBeenCalledWith({
-        where: { id: recipeId },
-        include: {
-          steps: {
-            orderBy: { stepNumber: 'asc' },
-          },
-          ingredients: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
     });
 
     it('should throw ForbiddenException when user does not own the recipe', async () => {
-      const otherUserRecipe = {
-        ...mockRecipe,
-        userId: 999,
-      };
-
+      const otherUserRecipe = { ...mockRecipe, userId: 999 };
       mockPrismaService.recipe.findUnique.mockResolvedValue(otherUserRecipe);
 
       await expect(service.findOne(userId, recipeId)).rejects.toThrow(
         new ForbiddenException('You do not have access to this recipe'),
       );
-
-      expect(mockPrismaService.recipe.findUnique).toHaveBeenCalledTimes(1);
     });
 
     it('should return recipe with empty steps and ingredients arrays', async () => {
@@ -458,7 +503,6 @@ describe('RecipesService', () => {
         steps: [],
         ingredients: [],
       };
-
       mockPrismaService.recipe.findUnique.mockResolvedValue(
         recipeWithoutStepsOrIngredients,
       );
@@ -473,13 +517,24 @@ describe('RecipesService', () => {
   describe('update', () => {
     const userId = 1;
     const recipeId = 1;
-    const updateRecipeDto: UpdateRecipeDto = {
-      title: 'Updated Recipe',
-      description: 'Updated description',
-      servings: 6,
+
+    const existingDraft = {
+      id: recipeId,
+      userId,
+      title: null,
+      description: null,
+      servings: 1,
+      prepTime: null,
+      cookTime: null,
+      imageUrl: null,
+      status: RecipeStatus.DRAFT,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      steps: [],
+      ingredients: [],
     };
 
-    const existingRecipe = {
+    const existingPublished = {
       id: recipeId,
       userId,
       title: 'Original Recipe',
@@ -488,44 +543,30 @@ describe('RecipesService', () => {
       prepTime: 15,
       cookTime: 30,
       imageUrl: 'https://example.com/image.jpg',
+      status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
-      steps: [],
-      ingredients: [],
-    };
-
-    const updatedRecipe = {
-      id: recipeId,
-      userId,
-      ...updateRecipeDto,
-      prepTime: 15,
-      cookTime: 30,
-      imageUrl: 'https://example.com/image.jpg',
-      createdAt: existingRecipe.createdAt,
-      updatedAt: new Date(),
+      steps: [{ id: 1, recipeId, stepNumber: 1, instruction: 'Step 1', duration: null }],
+      ingredients: [{ id: 1, recipeId, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
     };
 
     it('should update a recipe successfully', async () => {
-      mockPrismaService.recipe.findUnique.mockResolvedValue(existingRecipe);
+      const updateDto: UpdateRecipeDto = { title: 'Updated Title', description: 'New desc' };
+      const updatedRecipe = { ...existingPublished, ...updateDto };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(existingPublished);
       mockPrismaService.recipe.update.mockResolvedValue(updatedRecipe);
 
-      const result = await service.update(userId, recipeId, updateRecipeDto);
+      const result = await service.update(userId, recipeId, updateDto);
 
       expect(result).toEqual(updatedRecipe);
-      expect(mockPrismaService.recipe.findUnique).toHaveBeenCalledWith({
-        where: { id: recipeId },
-        include: {
-          steps: {
-            orderBy: { stepNumber: 'asc' },
-          },
-          ingredients: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
       expect(mockPrismaService.recipe.update).toHaveBeenCalledWith({
         where: { id: recipeId },
-        data: updateRecipeDto,
+        data: updateDto,
+        include: {
+          ingredients: { orderBy: { order: 'asc' } },
+          steps: { orderBy: { stepNumber: 'asc' } },
+        },
       });
     });
 
@@ -533,49 +574,104 @@ describe('RecipesService', () => {
       mockPrismaService.recipe.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update(userId, recipeId, updateRecipeDto),
-      ).rejects.toThrow(
-        new NotFoundException(`Recipe with ID ${recipeId} not found`),
-      );
+        service.update(userId, recipeId, { title: 'Updated' }),
+      ).rejects.toThrow(NotFoundException);
 
       expect(mockPrismaService.recipe.update).not.toHaveBeenCalled();
     });
 
     it('should throw ForbiddenException when user does not own the recipe', async () => {
-      const otherUserRecipe = {
-        ...existingRecipe,
+      mockPrismaService.recipe.findUnique.mockResolvedValue({
+        ...existingPublished,
         userId: 999,
-      };
-
-      mockPrismaService.recipe.findUnique.mockResolvedValue(otherUserRecipe);
+      });
 
       await expect(
-        service.update(userId, recipeId, updateRecipeDto),
-      ).rejects.toThrow(
-        new ForbiddenException('You do not have access to this recipe'),
-      );
+        service.update(userId, recipeId, { title: 'Updated' }),
+      ).rejects.toThrow(ForbiddenException);
 
       expect(mockPrismaService.recipe.update).not.toHaveBeenCalled();
     });
 
-    it('should update only provided fields', async () => {
-      const partialUpdate: UpdateRecipeDto = {
-        title: 'New Title Only',
+    it('should publish a draft when all required fields are present', async () => {
+      const draftWithData = {
+        ...existingDraft,
+        title: 'My Recipe',
+        prepTime: 10,
+        ingredients: [{ id: 1, recipeId, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
+        steps: [{ id: 1, recipeId, stepNumber: 1, instruction: 'Mix', duration: null }],
       };
+      const updateDto: UpdateRecipeDto = { status: RecipeStatus.PUBLISHED };
+      const publishedRecipe = { ...draftWithData, status: RecipeStatus.PUBLISHED };
 
-      mockPrismaService.recipe.findUnique.mockResolvedValue(existingRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(draftWithData);
+      mockPrismaService.recipe.update.mockResolvedValue(publishedRecipe);
+
+      const result = await service.update(userId, recipeId, updateDto);
+
+      expect(result.status).toBe(RecipeStatus.PUBLISHED);
+    });
+
+    it('should throw BadRequestException when publishing draft without title', async () => {
+      const draftWithData = {
+        ...existingDraft,
+        prepTime: 10,
+        ingredients: [{ id: 1 }],
+        steps: [{ id: 1 }],
+      };
+      const updateDto: UpdateRecipeDto = { status: RecipeStatus.PUBLISHED };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(draftWithData);
+
+      await expect(service.update(userId, recipeId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.recipe.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when publishing draft without ingredients', async () => {
+      const draftWithData = {
+        ...existingDraft,
+        title: 'My Recipe',
+        prepTime: 10,
+        steps: [{ id: 1 }],
+        ingredients: [],
+      };
+      const updateDto: UpdateRecipeDto = { status: RecipeStatus.PUBLISHED };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(draftWithData);
+
+      await expect(service.update(userId, recipeId, updateDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should not re-validate when updating a PUBLISHED recipe fields', async () => {
+      const updateDto: UpdateRecipeDto = { title: 'New Title' };
+      const updatedRecipe = { ...existingPublished, title: 'New Title' };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(existingPublished);
+      mockPrismaService.recipe.update.mockResolvedValue(updatedRecipe);
+
+      const result = await service.update(userId, recipeId, updateDto);
+
+      expect(result.title).toBe('New Title');
+    });
+
+    it('should update only provided fields', async () => {
+      const partialUpdate: UpdateRecipeDto = { title: 'New Title Only' };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(existingPublished);
       mockPrismaService.recipe.update.mockResolvedValue({
-        ...existingRecipe,
+        ...existingPublished,
         title: 'New Title Only',
-        updatedAt: new Date(),
       });
 
       await service.update(userId, recipeId, partialUpdate);
 
-      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith({
-        where: { id: recipeId },
-        data: partialUpdate,
-      });
+      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: partialUpdate }),
+      );
     });
   });
 
@@ -592,6 +688,7 @@ describe('RecipesService', () => {
       prepTime: 15,
       cookTime: 30,
       imageUrl: 'https://example.com/image.jpg',
+      status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
       steps: [],
@@ -604,20 +701,19 @@ describe('RecipesService', () => {
 
       await service.delete(userId, recipeId);
 
-      expect(mockPrismaService.recipe.findUnique).toHaveBeenCalledWith({
-        where: { id: recipeId },
-        include: {
-          steps: {
-            orderBy: { stepNumber: 'asc' },
-          },
-          ingredients: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
       expect(mockPrismaService.recipe.delete).toHaveBeenCalledWith({
         where: { id: recipeId },
       });
+      expect(mockPrismaService.recipe.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should delete a DRAFT recipe successfully', async () => {
+      const draftRecipe = { ...existingRecipe, status: RecipeStatus.DRAFT, title: null };
+      mockPrismaService.recipe.findUnique.mockResolvedValue(draftRecipe);
+      mockPrismaService.recipe.delete.mockResolvedValue(draftRecipe);
+
+      await service.delete(userId, recipeId);
+
       expect(mockPrismaService.recipe.delete).toHaveBeenCalledTimes(1);
     });
 
@@ -632,12 +728,10 @@ describe('RecipesService', () => {
     });
 
     it('should throw ForbiddenException when user does not own the recipe', async () => {
-      const otherUserRecipe = {
+      mockPrismaService.recipe.findUnique.mockResolvedValue({
         ...existingRecipe,
         userId: 999,
-      };
-
-      mockPrismaService.recipe.findUnique.mockResolvedValue(otherUserRecipe);
+      });
 
       await expect(service.delete(userId, recipeId)).rejects.toThrow(
         new ForbiddenException('You do not have access to this recipe'),

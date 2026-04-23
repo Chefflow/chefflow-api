@@ -1,9 +1,14 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, IsEnum } from 'class-validator';
+import { RecipeStatus } from '@prisma/client';
 
 export class UpdateRecipeDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsEnum(RecipeStatus)
+  status?: RecipeStatus;
 
   @IsOptional()
   @IsString()
