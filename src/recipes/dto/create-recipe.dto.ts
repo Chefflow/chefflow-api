@@ -5,9 +5,8 @@ import { CreateRecipeIngredientDto } from '../../recipe-ingredients/dto/create-r
 import { CreateRecipeStepDto } from '../../recipe-steps/dto/create-recipe-step.dto';
 
 export class CreateRecipeDto {
-  @IsOptional()
   @IsString()
-  title?: string;
+  title!: string;
 
   @IsOptional()
   @IsEnum(RecipeStatus)
@@ -17,10 +16,9 @@ export class CreateRecipeDto {
   @IsString()
   description?: string;
 
-  @IsOptional()
   @IsInt()
   @Min(1)
-  servings?: number;
+  servings!: number;
 
   @IsOptional()
   @IsInt()
