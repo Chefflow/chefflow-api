@@ -27,7 +27,6 @@ export class RecipesService {
         title: recipeDto.title,
         prepTime: recipeDto.prepTime,
         ingredients: recipeDto.ingredients ?? [],
-        steps: recipeDto.steps ?? [],
       });
     }
 
@@ -133,7 +132,6 @@ export class RecipesService {
         title: newRecipe.title ?? existing.title,
         prepTime: newRecipe.prepTime ?? existing.prepTime,
         ingredients: existing.ingredients ?? [],
-        steps: existing.steps ?? [],
       });
     }
 
@@ -163,7 +161,6 @@ export class RecipesService {
     title?: string | null;
     prepTime?: number | null;
     ingredients: { length: number };
-    steps: { length: number };
   }): void {
     const errors: string[] = [];
 
@@ -175,9 +172,6 @@ export class RecipesService {
     }
     if (data.ingredients.length === 0) {
       errors.push('at least 1 ingredient is required to publish');
-    }
-    if (data.steps.length === 0) {
-      errors.push('at least 1 step is required to publish');
     }
 
     if (errors.length > 0) {
