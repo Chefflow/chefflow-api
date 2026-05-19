@@ -241,7 +241,10 @@ describe('RecipesController', () => {
 
     it('should handle different recipe IDs', async () => {
       const differentRecipeId = 999;
-      const differentRecipe = { ...mockRecipeWithRelations, id: differentRecipeId };
+      const differentRecipe = {
+        ...mockRecipeWithRelations,
+        id: differentRecipeId,
+      };
       mockRecipesService.findOne.mockResolvedValue(differentRecipe);
 
       const result = await controller.findOne(userId, differentRecipeId);

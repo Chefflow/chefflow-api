@@ -1,5 +1,5 @@
-import { DayOfWeek } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { DayOfWeek } from '@prisma/client';
 import { RecipeEntity } from '../../recipes/entities/recipe.entity';
 
 export class WeeklyPlanningSlotEntity {
@@ -7,10 +7,11 @@ export class WeeklyPlanningSlotEntity {
   weeklyPlanningId!: number;
   dayOfWeek!: DayOfWeek;
   slotNumber!: number;
-  recipeId!: number;
+  createdAt!: Date;
+  updatedAt!: Date;
 
   @Type(() => RecipeEntity)
-  recipe?: RecipeEntity;
+  recipes!: RecipeEntity[];
 
   constructor(partial: Partial<WeeklyPlanningSlotEntity>) {
     Object.assign(this, partial);

@@ -12,5 +12,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: chefflow-db-test
+    profiles: ['test']
+    environment:
+      POSTGRES_USER: ${TEST_DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${TEST_DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-chefflow_test}
+    ports:
+      - '${TEST_POSTGRES_PORT:-5433}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d chefflow_test']
+      interval: 1s
+      timeout: 3s
+      retries: 15
+
 volumes:
   postgres_data:

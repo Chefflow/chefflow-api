@@ -11,7 +11,10 @@ import { ThrottlerException } from '@nestjs/throttler';
 
 @Catch(AuthException, ThrottlerException, HttpException)
 export class AuthExceptionFilter implements ExceptionFilter {
-  catch(exception: AuthException | ThrottlerException | HttpException, host: ArgumentsHost) {
+  catch(
+    exception: AuthException | ThrottlerException | HttpException,
+    host: ArgumentsHost,
+  ) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
@@ -40,8 +43,18 @@ export class AuthExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
-    // If it's a validation error from class-validator
-    if (typeof exceptionResponse === 'object' && 'message' in exceptionResponse) {
+    if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'code' in exceptionResponse
+    ) {
+      return response.status(status).json(exceptionResponse);
+    }
+
+    if (
+      typeof exceptionResponse === 'object' &&
+      'message' in exceptionResponse
+    ) {
       const messages = Array.isArray((exceptionResponse as any).message)
         ? (exceptionResponse as any).message
         : [(exceptionResponse as any).message];

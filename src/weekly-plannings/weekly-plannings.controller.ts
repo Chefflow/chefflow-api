@@ -4,21 +4,24 @@ import {
   Get,
   Patch,
   Delete,
-  Put,
   Body,
   Param,
   ParseIntPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { DayOfWeek } from '@prisma/client';
+import type { DayOfWeek } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { WeeklyPlanningsService } from './weekly-plannings.service';
+import {
+  WeeklyPlanningsService,
+  type PlanningWithSlotsFlattened,
+} from './weekly-plannings.service';
 import { CreateWeeklyPlanningDto } from './dto/create-weekly-planning.dto';
 import { UpdateWeeklyPlanningDto } from './dto/update-weekly-planning.dto';
-import { UpsertSlotDto } from './dto/upsert-slot.dto';
+import { AddRecipeToSlotDto } from './dto/add-recipe-to-slot.dto';
 import { WeeklyPlanningEntity } from './entities/weekly-planning.entity';
 import { WeeklyPlanningSlotEntity } from './entities/weekly-planning-slot.entity';
+import { RecipeEntity } from '../recipes/entities/recipe.entity';
 import { ParseDayOfWeekPipe } from './pipes/parse-day-of-week.pipe';
 import { ParseSlotNumberPipe } from './pipes/parse-slot-number.pipe';
 
@@ -28,14 +31,31 @@ export class WeeklyPlanningsController {
     private readonly weeklyPlanningsService: WeeklyPlanningsService,
   ) {}
 
+  private toEntity(planning: PlanningWithSlotsFlattened): WeeklyPlanningEntity {
+    const { slots, ...rest } = planning;
+    return new WeeklyPlanningEntity({
+      ...rest,
+      slots: slots.map(
+        (s) =>
+          new WeeklyPlanningSlotEntity({
+            ...s,
+            recipes: s.recipes.map((r) => new RecipeEntity(r)),
+          }),
+      ),
+    });
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @CurrentUser('id') userId: number,
     @Body() createDto: CreateWeeklyPlanningDto,
   ): Promise<WeeklyPlanningEntity> {
-    const planning = await this.weeklyPlanningsService.create(userId, createDto);
-    return new WeeklyPlanningEntity(planning);
+    const planning = await this.weeklyPlanningsService.create(
+      userId,
+      createDto,
+    );
+    return this.toEntity(planning);
   }
 
   @Get()
@@ -52,7 +72,7 @@ export class WeeklyPlanningsController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<WeeklyPlanningEntity> {
     const planning = await this.weeklyPlanningsService.findOne(userId, id);
-    return new WeeklyPlanningEntity(planning);
+    return this.toEntity(planning);
   }
 
   @Patch(':id')
@@ -66,7 +86,7 @@ export class WeeklyPlanningsController {
       id,
       updateDto,
     );
-    return new WeeklyPlanningEntity(planning);
+    return this.toEntity(planning);
   }
 
   @Delete(':id')
@@ -78,22 +98,44 @@ export class WeeklyPlanningsController {
     await this.weeklyPlanningsService.delete(userId, id);
   }
 
-  @Put(':id/slots/:day/:slot')
-  async upsertSlot(
+  @Post(':id/slots/:day/:slot/recipes')
+  @HttpCode(HttpStatus.CREATED)
+  async addRecipeToSlot(
     @CurrentUser('id') userId: number,
     @Param('id', ParseIntPipe) id: number,
     @Param('day', ParseDayOfWeekPipe) day: DayOfWeek,
     @Param('slot', ParseSlotNumberPipe) slot: number,
-    @Body() upsertSlotDto: UpsertSlotDto,
+    @Body() dto: AddRecipeToSlotDto,
   ): Promise<WeeklyPlanningSlotEntity> {
-    const result = await this.weeklyPlanningsService.upsertSlot(
+    const result = await this.weeklyPlanningsService.addRecipeToSlot(
       userId,
       id,
       day,
       slot,
-      upsertSlotDto,
+      dto.recipeId,
     );
-    return new WeeklyPlanningSlotEntity(result);
+    return new WeeklyPlanningSlotEntity({
+      ...result,
+      recipes: result.recipes.map((j) => new RecipeEntity(j.recipe)),
+    });
+  }
+
+  @Delete(':id/slots/:day/:slot/recipes/:recipeId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async removeRecipeFromSlot(
+    @CurrentUser('id') userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('day', ParseDayOfWeekPipe) day: DayOfWeek,
+    @Param('slot', ParseSlotNumberPipe) slot: number,
+    @Param('recipeId', ParseIntPipe) recipeId: number,
+  ): Promise<void> {
+    await this.weeklyPlanningsService.removeRecipeFromSlot(
+      userId,
+      id,
+      day,
+      slot,
+      recipeId,
+    );
   }
 
   @Delete(':id/slots/:day/:slot')
