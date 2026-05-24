@@ -16,6 +16,7 @@ export class UserEntity {
 
   name?: string | null;
   image?: string | null;
+  slotsPerDay!: number;
   provider!: AuthProvider;
   providerId?: string | null;
   createdAt!: Date;

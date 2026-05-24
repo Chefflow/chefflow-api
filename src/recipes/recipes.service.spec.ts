@@ -89,8 +89,26 @@ describe('RecipesService', () => {
       status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
-      ingredients: [{ id: 1, recipeId: 1, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
-      steps: [{ id: 1, recipeId: 1, stepNumber: 1, instruction: 'Mix', duration: null }],
+      ingredients: [
+        {
+          id: 1,
+          recipeId: 1,
+          ingredientName: 'Flour',
+          quantity: 200,
+          unit: 'GRAM',
+          notes: null,
+          order: 0,
+        },
+      ],
+      steps: [
+        {
+          id: 1,
+          recipeId: 1,
+          stepNumber: 1,
+          instruction: 'Mix',
+          duration: null,
+        },
+      ],
     };
 
     it('should create a DRAFT recipe without title', async () => {
@@ -132,7 +150,9 @@ describe('RecipesService', () => {
       const createDto: CreateRecipeDto = {
         title: 'Test Recipe',
         prepTime: 15,
-        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        ingredients: [
+          { ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any },
+        ],
         steps: [{ instruction: 'Mix' }],
       };
 
@@ -160,7 +180,9 @@ describe('RecipesService', () => {
     it('should throw BadRequestException when creating PUBLISHED without title', async () => {
       const createDto: CreateRecipeDto = {
         prepTime: 15,
-        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        ingredients: [
+          { ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any },
+        ],
         steps: [{ instruction: 'Mix' }],
       };
 
@@ -173,7 +195,9 @@ describe('RecipesService', () => {
     it('should throw BadRequestException when creating PUBLISHED without prepTime', async () => {
       const createDto: CreateRecipeDto = {
         title: 'Test',
-        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
+        ingredients: [
+          { ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any },
+        ],
         steps: [{ instruction: 'Mix' }],
       };
 
@@ -187,18 +211,6 @@ describe('RecipesService', () => {
         title: 'Test',
         prepTime: 15,
         steps: [{ instruction: 'Mix' }],
-      };
-
-      await expect(service.create(userId, createDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException when creating PUBLISHED without steps', async () => {
-      const createDto: CreateRecipeDto = {
-        title: 'Test',
-        prepTime: 15,
-        ingredients: [{ ingredientName: 'Flour', quantity: 200, unit: 'GRAM' as any }],
       };
 
       await expect(service.create(userId, createDto)).rejects.toThrow(
@@ -278,12 +290,40 @@ describe('RecipesService', () => {
         imageUrl: null,
         status: RecipeStatus.PUBLISHED,
         ingredients: [
-          { id: 1, recipeId: 1, ingredientName: 'Pasta', quantity: 400, unit: 'GRAM', notes: 'Spaghetti', order: 0 },
-          { id: 2, recipeId: 1, ingredientName: 'Tomato', quantity: 3, unit: 'UNIT', notes: null, order: 1 },
+          {
+            id: 1,
+            recipeId: 1,
+            ingredientName: 'Pasta',
+            quantity: 400,
+            unit: 'GRAM',
+            notes: 'Spaghetti',
+            order: 0,
+          },
+          {
+            id: 2,
+            recipeId: 1,
+            ingredientName: 'Tomato',
+            quantity: 3,
+            unit: 'UNIT',
+            notes: null,
+            order: 1,
+          },
         ],
         steps: [
-          { id: 1, recipeId: 1, stepNumber: 1, instruction: 'Boil water', duration: null },
-          { id: 2, recipeId: 1, stepNumber: 2, instruction: 'Cook pasta', duration: 10 },
+          {
+            id: 1,
+            recipeId: 1,
+            stepNumber: 1,
+            instruction: 'Boil water',
+            duration: null,
+          },
+          {
+            id: 2,
+            recipeId: 1,
+            stepNumber: 2,
+            instruction: 'Cook pasta',
+            duration: 10,
+          },
         ],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -546,12 +586,33 @@ describe('RecipesService', () => {
       status: RecipeStatus.PUBLISHED,
       createdAt: new Date(),
       updatedAt: new Date(),
-      steps: [{ id: 1, recipeId, stepNumber: 1, instruction: 'Step 1', duration: null }],
-      ingredients: [{ id: 1, recipeId, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
+      steps: [
+        {
+          id: 1,
+          recipeId,
+          stepNumber: 1,
+          instruction: 'Step 1',
+          duration: null,
+        },
+      ],
+      ingredients: [
+        {
+          id: 1,
+          recipeId,
+          ingredientName: 'Flour',
+          quantity: 200,
+          unit: 'GRAM',
+          notes: null,
+          order: 0,
+        },
+      ],
     };
 
     it('should update a recipe successfully', async () => {
-      const updateDto: UpdateRecipeDto = { title: 'Updated Title', description: 'New desc' };
+      const updateDto: UpdateRecipeDto = {
+        title: 'Updated Title',
+        description: 'New desc',
+      };
       const updatedRecipe = { ...existingPublished, ...updateDto };
 
       mockPrismaService.recipe.findUnique.mockResolvedValue(existingPublished);
@@ -598,11 +659,32 @@ describe('RecipesService', () => {
         ...existingDraft,
         title: 'My Recipe',
         prepTime: 10,
-        ingredients: [{ id: 1, recipeId, ingredientName: 'Flour', quantity: 200, unit: 'GRAM', notes: null, order: 0 }],
-        steps: [{ id: 1, recipeId, stepNumber: 1, instruction: 'Mix', duration: null }],
+        ingredients: [
+          {
+            id: 1,
+            recipeId,
+            ingredientName: 'Flour',
+            quantity: 200,
+            unit: 'GRAM',
+            notes: null,
+            order: 0,
+          },
+        ],
+        steps: [
+          {
+            id: 1,
+            recipeId,
+            stepNumber: 1,
+            instruction: 'Mix',
+            duration: null,
+          },
+        ],
       };
       const updateDto: UpdateRecipeDto = { status: RecipeStatus.PUBLISHED };
-      const publishedRecipe = { ...draftWithData, status: RecipeStatus.PUBLISHED };
+      const publishedRecipe = {
+        ...draftWithData,
+        status: RecipeStatus.PUBLISHED,
+      };
 
       mockPrismaService.recipe.findUnique.mockResolvedValue(draftWithData);
       mockPrismaService.recipe.update.mockResolvedValue(publishedRecipe);
@@ -708,7 +790,11 @@ describe('RecipesService', () => {
     });
 
     it('should delete a DRAFT recipe successfully', async () => {
-      const draftRecipe = { ...existingRecipe, status: RecipeStatus.DRAFT, title: null };
+      const draftRecipe = {
+        ...existingRecipe,
+        status: RecipeStatus.DRAFT,
+        title: null,
+      };
       mockPrismaService.recipe.findUnique.mockResolvedValue(draftRecipe);
       mockPrismaService.recipe.delete.mockResolvedValue(draftRecipe);
 

@@ -1,14 +1,37 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
-import { DayOfWeek } from '@prisma/client';
+import type {
+  DayOfWeek,
+  Prisma,
+  Recipe,
+  WeeklyPlanning,
+  WeeklyPlanningSlot,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWeeklyPlanningDto } from './dto/create-weekly-planning.dto';
 import { UpdateWeeklyPlanningDto } from './dto/update-weekly-planning.dto';
-import { UpsertSlotDto } from './dto/upsert-slot.dto';
+
+const MAX_RECIPES_PER_SLOT = 5;
+
+type SlotWithJunction = WeeklyPlanningSlot & {
+  recipes: Array<{ recipe: Recipe }>;
+};
+
+type PlanningWithSlotsRaw = WeeklyPlanning & {
+  slots: SlotWithJunction[];
+};
+
+export type PlanningSlotFlattened = WeeklyPlanningSlot & {
+  recipes: Recipe[];
+};
+
+export type PlanningWithSlotsFlattened = WeeklyPlanning & {
+  slots: PlanningSlotFlattened[];
+};
 
 @Injectable()
 export class WeeklyPlanningsService {
@@ -25,14 +48,8 @@ export class WeeklyPlanningsService {
       where: { id },
     });
 
-    if (!planning) {
+    if (!planning || planning.userId !== userId) {
       throw new NotFoundException(`Weekly planning with ID ${id} not found`);
-    }
-
-    if (planning.userId !== userId) {
-      throw new ForbiddenException(
-        'You do not have access to this weekly planning',
-      );
     }
 
     return planning;
@@ -40,23 +57,51 @@ export class WeeklyPlanningsService {
 
   private readonly slotsInclude = {
     slots: {
-      include: { recipe: true },
-      orderBy: [
-        { dayOfWeek: 'asc' as const },
-        { slotNumber: 'asc' as const },
-      ],
+      include: {
+        recipes: {
+          orderBy: { position: 'asc' as const },
+          include: { recipe: true },
+        },
+      },
+      orderBy: [{ dayOfWeek: 'asc' as const }, { slotNumber: 'asc' as const }],
     },
-  };
+  } satisfies Prisma.WeeklyPlanningInclude;
+
+  private flattenSlots(
+    planning: PlanningWithSlotsRaw,
+  ): PlanningWithSlotsFlattened {
+    return {
+      ...planning,
+      slots: planning.slots.map((s) => {
+        const { recipes, ...rest } = s;
+        return {
+          ...rest,
+          recipes: recipes.map((j) => j.recipe),
+        };
+      }),
+    };
+  }
 
   async create(userId: number, dto: CreateWeeklyPlanningDto) {
     const weekStart = new Date(dto.weekStart);
     const weekEnd = this.computeWeekEnd(weekStart);
 
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { slotsPerDay: true },
+    });
+
     try {
-      return await this.prisma.weeklyPlanning.create({
-        data: { userId, weekStart, weekEnd },
+      const planning = await this.prisma.weeklyPlanning.create({
+        data: {
+          userId,
+          weekStart,
+          weekEnd,
+          slotsPerDay: user.slotsPerDay,
+        },
         include: this.slotsInclude,
       });
+      return this.flattenSlots(planning);
     } catch (error: unknown) {
       if (isPrismaUniqueConstraintError(error)) {
         throw new ConflictException(
@@ -80,17 +125,11 @@ export class WeeklyPlanningsService {
       include: this.slotsInclude,
     });
 
-    if (!planning) {
+    if (!planning || planning.userId !== userId) {
       throw new NotFoundException(`Weekly planning with ID ${id} not found`);
     }
 
-    if (planning.userId !== userId) {
-      throw new ForbiddenException(
-        'You do not have access to this weekly planning',
-      );
-    }
-
-    return planning;
+    return this.flattenSlots(planning);
   }
 
   async update(userId: number, id: number, dto: UpdateWeeklyPlanningDto) {
@@ -103,11 +142,12 @@ export class WeeklyPlanningsService {
     }
 
     try {
-      return await this.prisma.weeklyPlanning.update({
+      const planning = await this.prisma.weeklyPlanning.update({
         where: { id },
         data,
         include: this.slotsInclude,
       });
+      return this.flattenSlots(planning);
     } catch (error: unknown) {
       if (isPrismaUniqueConstraintError(error)) {
         throw new ConflictException(
@@ -123,45 +163,152 @@ export class WeeklyPlanningsService {
     await this.prisma.weeklyPlanning.delete({ where: { id } });
   }
 
-  async upsertSlot(
+  async addRecipeToSlot(
     userId: number,
     planningId: number,
     dayOfWeek: DayOfWeek,
     slotNumber: number,
-    dto: UpsertSlotDto,
+    recipeId: number,
   ) {
-    await this.findPlanningOrThrow(userId, planningId);
+    return this.prisma.$transaction(async (tx) => {
+      const planning = await tx.weeklyPlanning.findUnique({
+        where: { id: planningId },
+        select: { id: true, userId: true, slotsPerDay: true },
+      });
 
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: dto.recipeId },
-    });
+      if (!planning || planning.userId !== userId) {
+        throw new NotFoundException(
+          `Weekly planning with ID ${planningId} not found`,
+        );
+      }
 
-    if (!recipe) {
-      throw new NotFoundException(`Recipe with ID ${dto.recipeId} not found`);
-    }
+      if (slotNumber > planning.slotsPerDay) {
+        throw new BadRequestException({
+          code: 'SLOT_OUT_OF_RANGE',
+          message: `Slot number ${slotNumber} exceeds planning's slotsPerDay (${planning.slotsPerDay})`,
+        });
+      }
 
-    if (recipe.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this recipe');
-    }
+      const recipe = await tx.recipe.findUnique({
+        where: { id: recipeId },
+        select: { id: true, userId: true },
+      });
 
-    return this.prisma.weeklyPlanningSlot.upsert({
-      where: {
-        weeklyPlanningId_dayOfWeek_slotNumber: {
+      if (!recipe || recipe.userId !== userId) {
+        throw new NotFoundException(`Recipe with ID ${recipeId} not found`);
+      }
+
+      const slot = await tx.weeklyPlanningSlot.upsert({
+        where: {
+          weeklyPlanningId_dayOfWeek_slotNumber: {
+            weeklyPlanningId: planningId,
+            dayOfWeek,
+            slotNumber,
+          },
+        },
+        create: {
           weeklyPlanningId: planningId,
           dayOfWeek,
           slotNumber,
         },
-      },
-      create: {
-        weeklyPlanningId: planningId,
-        dayOfWeek,
-        slotNumber,
-        recipeId: dto.recipeId,
-      },
-      update: {
-        recipeId: dto.recipeId,
-      },
-      include: { recipe: true },
+        update: {},
+        include: { recipes: true },
+      });
+
+      if (slot.recipes.length >= MAX_RECIPES_PER_SLOT) {
+        throw new BadRequestException({
+          code: 'SLOT_FULL',
+          message: `Slot already contains the maximum of ${MAX_RECIPES_PER_SLOT} recipes`,
+        });
+      }
+
+      if (slot.recipes.some((r) => r.recipeId === recipeId)) {
+        throw new ConflictException({
+          code: 'RECIPE_DUPLICATE',
+          message: 'Recipe is already assigned to this slot',
+        });
+      }
+
+      const nextPosition =
+        slot.recipes.length === 0
+          ? 1
+          : Math.max(...slot.recipes.map((r) => r.position)) + 1;
+
+      try {
+        await tx.weeklyPlanningSlotRecipe.create({
+          data: {
+            slotId: slot.id,
+            recipeId,
+            position: nextPosition,
+          },
+        });
+      } catch (error: unknown) {
+        if (isPrismaUniqueConstraintError(error)) {
+          throw new ConflictException({
+            code: 'RECIPE_DUPLICATE',
+            message: 'Recipe is already assigned to this slot',
+          });
+        }
+        throw error;
+      }
+
+      return tx.weeklyPlanningSlot.findUniqueOrThrow({
+        where: { id: slot.id },
+        include: {
+          recipes: {
+            orderBy: { position: 'asc' },
+            include: { recipe: true },
+          },
+        },
+      });
+    });
+  }
+
+  async removeRecipeFromSlot(
+    userId: number,
+    planningId: number,
+    dayOfWeek: DayOfWeek,
+    slotNumber: number,
+    recipeId: number,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const planning = await tx.weeklyPlanning.findUnique({
+        where: { id: planningId },
+        select: { id: true, userId: true },
+      });
+
+      if (!planning || planning.userId !== userId) {
+        throw new NotFoundException(
+          `Weekly planning with ID ${planningId} not found`,
+        );
+      }
+
+      const slot = await tx.weeklyPlanningSlot.findUnique({
+        where: {
+          weeklyPlanningId_dayOfWeek_slotNumber: {
+            weeklyPlanningId: planningId,
+            dayOfWeek,
+            slotNumber,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!slot) {
+        throw new NotFoundException(
+          `Slot ${slotNumber} for ${dayOfWeek} in planning ${planningId} not found`,
+        );
+      }
+
+      const result = await tx.weeklyPlanningSlotRecipe.deleteMany({
+        where: { slotId: slot.id, recipeId },
+      });
+
+      if (result.count === 0) {
+        throw new NotFoundException(
+          `Recipe ${recipeId} is not assigned to slot ${slotNumber} on ${dayOfWeek}`,
+        );
+      }
     });
   }
 

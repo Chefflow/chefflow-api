@@ -492,6 +492,48 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedUser);
     });
 
+    it('should persist slotsPerDay when provided in update payload', async () => {
+      const username = 'user1';
+      const updateUserDto = {
+        slotsPerDay: 5,
+      };
+
+      const existingUser = {
+        id: 1,
+        username: 'user1',
+        email: 'user1@example.com',
+        passwordHash: 'hash123',
+        name: 'User One',
+        image: null,
+        slotsPerDay: 3,
+        provider: 'LOCAL',
+        providerId: null,
+        hashedRefreshToken: null,
+        createdAt: new Date('2023-01-01'),
+        updatedAt: new Date('2023-01-01'),
+      };
+
+      const updatedUser = {
+        ...existingUser,
+        slotsPerDay: 5,
+        updatedAt: new Date(),
+      };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(existingUser);
+      mockPrismaService.user.update.mockResolvedValue(updatedUser);
+
+      const result = await service.update(username, updateUserDto);
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username },
+      });
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { username },
+        data: updateUserDto,
+      });
+      expect(result.slotsPerDay).toBe(5);
+    });
+
     it('should throw NotFoundException if user does not exist', async () => {
       const username = 'nonexistentuser';
       const updateUserDto = {
