@@ -1,0 +1,29 @@
+{
+  "$schema": "./features.schema.json",
+  "version": 1,
+  "updatedAt": "2026-05-24",
+  "statuses": ["pending", "spec_ready", "in_progress", "review", "done", "abandoned"],
+  "features": [
+    {
+      "id": "multi-slots",
+      "title": "Slots configurables por usuario y multi-receta por slot",
+      "status": "done",
+      "owner": "Imcasero",
+      "specDoc": "docs/tasks/configurable-multi-recipe-slots.md",
+      "specDir": null,
+      "mergedAt": "2026-05-24",
+      "mergedIn": "b0e82b8",
+      "notes": "Mergeado en main vía PR #12. Sirve de referencia histórica."
+    },
+    {
+      "id": "custom-units",
+      "title": "Unidades de medida personalizadas por usuario",
+      "status": "pending",
+      "owner": null,
+      "specDoc": "docs/tasks/custom-units.md",
+      "specDir": "specs/custom-units",
+      "blockedBy": [],
+      "notes": "Spec heredada de docs/tasks. Pendiente de pasar por Spec Author para reformular en EARS y dividir tasks atómicos."
+    }
+  ]
+}
