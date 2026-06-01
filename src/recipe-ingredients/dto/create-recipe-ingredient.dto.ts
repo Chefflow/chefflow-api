@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, Min, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  Min,
+  MaxLength,
+} from 'class-validator';
 import { Unit } from '@prisma/client';
 
 export class CreateRecipeIngredientDto {

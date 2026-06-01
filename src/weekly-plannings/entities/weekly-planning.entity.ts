@@ -6,6 +6,7 @@ export class WeeklyPlanningEntity {
   userId!: number;
   weekStart!: Date;
   weekEnd!: Date;
+  slotsPerDay!: number;
   createdAt!: Date;
   updatedAt!: Date;
 

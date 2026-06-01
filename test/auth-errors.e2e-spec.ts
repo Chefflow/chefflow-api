@@ -200,9 +200,9 @@ describe('Auth Error Handling (e2e)', () => {
         }
       }
 
-      expect(rateLimitResponse!.status).toBe(429);
+      expect(rateLimitResponse.status).toBe(429);
 
-      const error: AuthErrorResponse = rateLimitResponse!.body;
+      const error: AuthErrorResponse = rateLimitResponse.body;
       expect(error).toMatchObject({
         code: 'RATE_LIMIT',
         message: 'Too many requests. Please try again later',
