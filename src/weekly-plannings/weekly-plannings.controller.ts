@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { DayOfWeek } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
@@ -26,6 +27,7 @@ import { ParseDayOfWeekPipe } from './pipes/parse-day-of-week.pipe';
 import { ParseSlotNumberPipe } from './pipes/parse-slot-number.pipe';
 
 @Controller('weekly-plannings')
+@Throttle({ default: { limit: 300, ttl: 60000 } })
 export class WeeklyPlanningsController {
   constructor(
     private readonly weeklyPlanningsService: WeeklyPlanningsService,
