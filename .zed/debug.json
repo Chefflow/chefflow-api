@@ -1,0 +1,40 @@
+// Debug de NestJS. cmd-shift-d para abrir el panel.
+[
+  {
+    "label": "NestJS: dev (watch)",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/node_modules/.bin/nest",
+    "args": ["start", "--debug", "--watch"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal",
+    "env": { "NODE_ENV": "development" }
+  },
+  {
+    "label": "Jest: archivo actual",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/node_modules/.bin/jest",
+    "args": ["--runInBand", "--no-coverage", "$ZED_FILE"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal"
+  },
+  {
+    "label": "Jest: todos los unitarios",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/node_modules/.bin/jest",
+    "args": ["--runInBand"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal"
+  },
+  {
+    "label": "Jest: e2e (requiere postgres-test)",
+    "adapter": "JavaScript",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/node_modules/jest/bin/jest.js",
+    "args": ["--runInBand", "--config", "./test/jest-e2e.json"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal"
+  }
+]
